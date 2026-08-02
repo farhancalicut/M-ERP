@@ -1,0 +1,17 @@
+export const STANDARD_CLASSES = [
+  { id: "PRE_KG", name: "Pre-KG", defaultOrder: 1 },
+  { id: "LKG", name: "LKG", defaultOrder: 2 },
+  { id: "UKG", name: "UKG", defaultOrder: 3 },
+  { id: "CLASS_1", name: "Class 1", defaultOrder: 4 },
+  { id: "CLASS_2", name: "Class 2", defaultOrder: 5 },
+  { id: "CLASS_3", name: "Class 3", defaultOrder: 6 },
+  { id: "CLASS_4", name: "Class 4", defaultOrder: 7 },
+  { id: "CLASS_5", name: "Class 5", defaultOrder: 8 },
+  { id: "CLASS_6", name: "Class 6", defaultOrder: 9 },
+  { id: "CLASS_7", name: "Class 7", defaultOrder: 10 },
+  { id: "CLASS_8", name: "Class 8", defaultOrder: 11 },
+  { id: "CLASS_9", name: "Class 9", defaultOrder: 12 },
+  { id: "CLASS_10", name: "Class 10", defaultOrder: 13 },
+  { id: "CLASS_11", name: "Class 11", defaultOrder: 14 },
+  { id: "CLASS_12", name: "Class 12", defaultOrder: 15 },
+];

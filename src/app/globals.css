@@ -1,27 +1,136 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+ 
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+ 
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+ 
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+ 
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 355.7 100% 97.3%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+ 
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 221.2 83.2% 53.3%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  /* Light Mode Themes */
+  :root[data-theme="teal"] {
+    --primary: 173 80% 32%; /* teal-700 */
+    --primary-foreground: 0 0% 100%;
+    --ring: 173 80% 32%;
+  }
+  :root[data-theme="blue"] {
+    --primary: 221.2 83.2% 53.3%; /* blue-600 */
+    --primary-foreground: 0 0% 100%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+  :root[data-theme="rose"] {
+    --primary: 346 87% 55%; /* rose-600 */
+    --primary-foreground: 0 0% 100%;
+    --ring: 346 87% 55%;
+  }
+
+ 
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+ 
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+ 
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+ 
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+ 
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+ 
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --success: 149 65% 20%;
+    --success-foreground: 149 65% 90%;
+
+    --warning: 48 96% 25%;
+    --warning-foreground: 48 96% 90%;
+
+    --info: 199 89% 20%;
+    --info-foreground: 199 89% 90%;
+ 
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 217.2 91.2% 59.8%;
+  }
+  
+  /* Dark Mode Themes */
+  .dark[data-theme="teal"], :root[data-theme="teal"].dark {
+    --primary: 173 80% 40%; 
+    --primary-foreground: 0 0% 100%;
+  }
+  .dark[data-theme="blue"], :root[data-theme="blue"].dark {
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 0 0% 100%;
+  }
+  .dark[data-theme="rose"], :root[data-theme="rose"].dark {
+    --primary: 346 87% 65%;
+    --primary-foreground: 0 0% 100%;
   }
 }
+ 
+@layer base {
+  :root[data-font="inter"] {
+    --font-sans: var(--font-inter);
+  }
+  :root[data-font="roboto"] {
+    --font-sans: var(--font-roboto);
+  }
+  :root[data-font="outfit"] {
+    --font-sans: var(--font-outfit);
+  }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

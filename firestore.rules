@@ -1,0 +1,343 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // GLOBAL HELPER FUNCTIONS (ONE READ ARCHITECTURE)
+    // ==========================================
+    
+    function signedIn() {
+      return request.auth != null;
+    }
+    
+    // THE ONLY GET CALL ALLOWED (Caching authorization document)
+    function userDoc() {
+      let docRef = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return docRef != null ? docRef.data : null;
+    }
+    
+    function isActive() {
+      let uDoc = userDoc();
+      return uDoc != null && uDoc.status == "ACTIVE";
+    }
+    
+    function subscriptionStatus() {
+      let uDoc = userDoc();
+      return uDoc != null ? uDoc.subscriptionStatus : null;
+    }
+
+    function isNotLocked() {
+      let subStatus = subscriptionStatus();
+      return subStatus != null && subStatus != "LOCKED" && subStatus != "EXPIRED";
+    }
+
+    function role() {
+      return userDoc().role;
+    }
+    
+    function madrassaId() {
+      return userDoc().madrassaId;
+    }
+    
+    function sameTenant(mId) {
+      return madrassaId() == mId;
+    }
+
+    function isSuperAdmin() { return role() == 'SUPER_ADMIN'; }
+    function isManagement() { return role() == 'MANAGEMENT'; }
+    function isPrincipal() { return role() == 'PRINCIPAL'; }
+    function isTeacher() { return role() == 'TEACHER'; }
+    function isParent() { return role() == 'PARENT'; }
+    function isAlumni() { return role() == 'ALUMNI'; }
+
+    // Core verification combo (Validates Session + Status + Tenant Isolation + Subscription Lock)
+    function canAccess(mId) {
+      return signedIn() && isActive() && isNotLocked() && sameTenant(mId);
+    }
+    
+    // ==========================================
+    // SPECIFIC OWNERSHIP CHECKERS
+    // ==========================================
+    
+    function isAssignedClass(cId) {
+      return cId in userDoc().assignedClassIds;
+    }
+
+    function isAssignedSubject(sId) {
+      return sId in userDoc().assignedSubjectIds;
+    }
+
+    function isOwnChild(studentId) {
+      let childParentId = get(/databases/$(database)/documents/students/$(studentId)).data.parentId;
+      return get(/databases/$(database)/documents/parents/$(childParentId)).data.userId == request.auth.uid;
+    }
+
+    // ==========================================
+    // COLLECTION RULES
+    // ==========================================
+
+    match /subscriptionPlans/{planId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && isActive() && isSuperAdmin();
+    }
+
+    match /boards/{boardId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && isActive() && isSuperAdmin();
+    }
+
+    match /questionPapers/{qpId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && isActive() && isSuperAdmin();
+    }
+
+    match /madrassas/{mId} {
+      // Management can bypass lock to read/write subscription details
+      allow read: if signedIn() && isActive() && (isSuperAdmin() || sameTenant(mId));
+      allow write: if signedIn() && isActive() && (isSuperAdmin() || (sameTenant(mId) && isManagement()));
+      
+      match /settings/{sId} {
+        allow read: if signedIn() && isActive() && (isSuperAdmin() || sameTenant(mId));
+        allow write: if signedIn() && isActive() && (isSuperAdmin() || (sameTenant(mId) && (isManagement() || isPrincipal())));
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (
+        request.auth.uid == userId ||
+        (isActive() && (isSuperAdmin() || resource == null || sameTenant(resource.data.madrassaId)))
+      );
+      allow create: if signedIn() && (
+        (request.auth.uid == userId && exists(/databases/$(database)/documents/pendingUsers/$(request.resource.data.pendingUserId))) ||
+        (isActive() && (isSuperAdmin() || (isManagement() && sameTenant(request.resource.data.madrassaId))))
+      );
+      allow update: if signedIn() && isActive() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        (resource != null && sameTenant(resource.data.madrassaId) && (isManagement() || isPrincipal()))
+      );
+      allow delete: if signedIn() && isActive() && (isSuperAdmin() || (resource != null && sameTenant(resource.data.madrassaId) && isManagement()));
+    }
+
+    match /pendingUsers/{pendingId} {
+      // Public read required during the Activation Flow (handled client-side by userId querying)
+      allow read: if true; 
+      allow delete: if signedIn(); // Only allow delete after successful Firebase Auth creation
+      allow write: if signedIn() && isActive() && (isSuperAdmin() || (canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal())));
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if isSuperAdmin() || canAccess(resource.data.madrassaId) || canAccess(request.resource.data.madrassaId) || canAccess(counterId.split('_')[0]);
+    }
+
+    // ------------------------------------------
+    // ACADEMIC DATA
+    // ------------------------------------------
+
+    match /academicYears/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow create: if canAccess(request.resource.data.madrassaId) && (isSuperAdmin() || isManagement());
+      allow update, delete: if canAccess(resource.data.madrassaId) && (isSuperAdmin() || isManagement());
+    }
+
+    match /classes/{id} {
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+      allow update, delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /subjects/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+      allow update, delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    // ------------------------------------------
+    // PEOPLE
+    // ------------------------------------------
+
+    match /students/{id} {
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isSuperAdmin() || isManagement() || isPrincipal() || isTeacher() || (isParent() && get(/databases/$(database)/documents/parents/$(resource.data.parentId)).data.userId == request.auth.uid)));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+      allow update: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)) || (isParent() && get(/databases/$(database)/documents/parents/$(resource.data.parentId)).data.userId == request.auth.uid));
+      allow delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /parents/{id} {
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)) || (isParent() && (userDoc().domainId == id || resource.data.email == userDoc().email || resource.data.userId == request.auth.uid)));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+      allow update: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isParent() && (userDoc().domainId == id || resource.data.email == userDoc().email)));
+      allow delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /teachers/{id} {
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && userDoc().userId == resource.data.userId));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+      allow update: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && userDoc().userId == resource.data.userId));
+      allow delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /teacherAssignments/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /studentParents/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    // ------------------------------------------
+    // OPERATIONS
+    // ------------------------------------------
+
+    match /attendance/{id} {
+      allow read: if (resource == null && signedIn() && isActive() && isNotLocked()) || 
+                     (resource != null && canAccess(resource.data.madrassaId) && 
+                     (isSuperAdmin() || isManagement() || isPrincipal() || 
+                     (isTeacher() && isAssignedClass(resource.data.classId)) || 
+                     isParent()));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(request.resource.data.classId)));
+      allow update: if canAccess(resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)));
+      allow delete: if false; 
+    }
+
+    match /exams/{id} {
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || isTeacher() || isParent() || isAlumni());
+      allow create: if canAccess(request.resource.data.madrassaId) && isPrincipal();
+      allow update, delete: if canAccess(resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /examSubjects/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /marks/{id} {
+      allow read: if (resource == null && signedIn() && isActive() && isNotLocked()) || 
+                     (resource != null && canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)) || isParent() || isAlumni()));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(request.resource.data.classId)));
+      allow update: if canAccess(resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId) && resource.data.locked == false));
+      allow delete: if false;
+    }
+
+    match /examResults/{id} {
+      allow read: if (resource == null && signedIn() && isActive() && isNotLocked()) || 
+                     (resource != null && canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)) || isParent() || isAlumni()));
+      allow create: if canAccess(request.resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(request.resource.data.classId)));
+      allow update: if canAccess(resource.data.madrassaId) && (isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)));
+      allow delete: if canAccess(resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /homeworks/{id} {
+      // Parents can read all homeworks within the tenant, minimizing complex nested read checks since they already isolate by madrassaId
+      allow read: if (resource == null && signedIn() && isActive() && isNotLocked()) || 
+                     (resource != null && canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && isAssignedClass(resource.data.classId)) || isParent()));
+      allow create: if canAccess(request.resource.data.madrassaId) && isTeacher() && isAssignedClass(request.resource.data.classId);
+      allow update: if canAccess(resource.data.madrassaId) && isTeacher() && isAssignedClass(resource.data.classId);
+      allow delete: if false;
+    }
+
+    match /homeworkSubmissions/{id} {
+      allow read: if (resource == null && signedIn() && isActive() && isNotLocked()) || 
+                     (resource != null && canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || isTeacher() || (isParent() && isOwnChild(resource.data.studentId))));
+      allow create, update: if canAccess(request.resource.data.madrassaId) && (isParent() && isOwnChild(request.resource.data.studentId));
+      allow delete: if false;
+    }
+
+    match /notifications/{id} {
+      // Global and Individual read check
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || resource.data.receiverType == 'GLOBAL' || (resource.data.receiverType == 'INDIVIDUAL' && request.auth.uid in resource.data.receiverIds)); 
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal() || isTeacher());
+      allow update, delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /notices/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow create: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal() || isSuperAdmin());
+      allow update, delete: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || isSuperAdmin());
+    }
+
+    // ------------------------------------------
+    // FINANCE & OTHER
+    // ------------------------------------------
+
+    match /fees/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && isManagement();
+    }
+
+    match /feeCategories/{id} {
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && isManagement();
+    }
+
+    match /feePayments/{id} {
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isSuperAdmin() || isManagement() || isPrincipal() || isParent() || isTeacher()));
+      allow write: if canAccess(request.resource.data.madrassaId) && (isManagement() || isPrincipal() || isTeacher());
+    }
+
+    match /studentFees/{id} {
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isSuperAdmin() || isManagement() || isPrincipal() || isTeacher() || (isParent() && isOwnChild(resource.data.studentId))));
+      allow write: if canAccess(request.resource.data.madrassaId) && (isSuperAdmin() || isManagement() || isPrincipal() || isTeacher());
+    }
+
+    match /salaryStructures/{id} {
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isManagement() || isSuperAdmin()));
+      allow write: if canAccess(request.resource.data.madrassaId) && (isManagement() || isSuperAdmin());
+    }
+
+    match /salaryPayments/{id} {
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isManagement() || isSuperAdmin()));
+      allow write: if canAccess(request.resource.data.madrassaId) && (isManagement() || isSuperAdmin());
+    }
+
+    match /gradeConfigs/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if signedIn() && isActive() && (
+        isManagement() || isSuperAdmin() || isPrincipal()
+      );
+    }
+
+    match /auditLogs/{id} {
+      // Management reads all, others read their own actions
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || resource.data.performedBy == request.auth.uid);
+      allow create: if canAccess(request.resource.data.madrassaId); // System creates these client-side
+      allow update, delete: if false;
+    }
+
+    match /achievements/{id} {
+      allow read: if canAccess(resource.data.madrassaId);
+      allow write: if canAccess(request.resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /alumni/{id} {
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isAlumni() && userDoc().userId == resource.data.userId));
+      allow write: if canAccess(request.resource.data.madrassaId) && isPrincipal();
+    }
+
+    match /donations/{id} {
+      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isAlumni() && resource.data.alumniId == userDoc().userId));
+      allow write: if canAccess(request.resource.data.madrassaId) && isManagement();
+    }
+
+    match /platformSettings/{id} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    match /counters/{id} {
+      // Counter IDs are like madrassaId_payments, so we check if ID starts with madrassaId or just allow if authenticated and active
+      allow read: if signedIn() && isActive();
+      allow write: if signedIn() && isActive() && (isManagement() || isPrincipal() || isTeacher());
+    }
+
+    match /platformInvoices/{id} {
+      allow read, write: if isSuperAdmin();
+    }
+  }
+}
