@@ -49,7 +49,6 @@ export default function NewStaffPage() {
         address: formData.address,
         bloodGroup: formData.bloodGroup,
         identityMarks: formData.identityMarks,
-        baseSalary: formData.baseSalary ? Number(formData.baseSalary) : undefined,
       }, userData.madrassaId, userData.uid);
       
       setCredentials(result);
@@ -137,12 +136,6 @@ export default function NewStaffPage() {
               </FormField>
               <FormField label="Specialization">
                 <Input value={formData.specialization || ""} onChange={e => setFormData({...formData, specialization: e.target.value})} placeholder="e.g. Mathematics" />
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <FormField label="Base Salary">
-                <Input type="number" value={formData.baseSalary || ""} onChange={e => setFormData({...formData, baseSalary: parseFloat(e.target.value) || undefined})} placeholder="e.g. 25000" />
               </FormField>
             </div>
           </FormSection>

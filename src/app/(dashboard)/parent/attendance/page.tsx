@@ -30,8 +30,8 @@ export default function ParentAttendancePage() {
       studentService.getStudentsByParent(userData.madrassaId, parentIdentifier).then(myStudents => {
         setStudents(myStudents as Student[]);
         if (myStudents.length > 0 && !selectedStudentId) {
-          const firstId = myStudents[0]?.studentId || myStudents[0]?.id;
-          setSelectedStudentId(firstId);
+          const firstId = myStudents[0]?.studentId;
+          setSelectedStudentId(firstId ?? "");
         } else if (myStudents.length === 0) {
           setLoading(false);
         }
@@ -80,7 +80,7 @@ export default function ParentAttendancePage() {
       if (record.status === "PRESENT") presentDays++;
       if (record.status === "ABSENT") absentDays++;
       if (record.status === "LEAVE") leaveDays++;
-      if (record.status === "LATE") lateDays++;
+      if ((record.status as any) === "LATE") lateDays++;
     }
     return {
       date: doc.date,
@@ -156,11 +156,11 @@ export default function ParentAttendancePage() {
                     <TableCell>{format(parseISO(r.date), "dd MMM yyyy")}</TableCell>
                     <TableCell>
                       <Badge variant={
-                        r.status === "PRESENT" ? "success" : 
-                        r.status === "ABSENT" ? "destructive" : 
-                        r.status === "LEAVE" ? "secondary" : 
-                        r.status === "LATE" ? "warning" : "outline"
-                      } as any>
+                        (r.status === "PRESENT" ? "success" : 
+                         r.status === "ABSENT" ? "destructive" : 
+                         r.status === "LEAVE" ? "secondary" : 
+                         "outline") as any
+                      }>
                         {r.status}
                       </Badge>
                     </TableCell>

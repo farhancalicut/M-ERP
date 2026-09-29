@@ -63,6 +63,40 @@ export const parentService = {
     return null;
   },
 
+  getParentByEmail: async (madrassaId: string, email: string): Promise<boolean> => {
+    // 1. Check parents collection directly if email is stored
+    const pQ = query(
+      collection(db, COLLECTION),
+      where("madrassaId", "==", madrassaId),
+      where("email", "==", email.toLowerCase()),
+      limit(1)
+    );
+    const pSnap = await getDocs(pQ);
+    if (!pSnap.empty) return true;
+
+    // 2. Check pendingUsers
+    const pendingQ = query(
+      collection(db, "pendingUsers"),
+      where("madrassaId", "==", madrassaId),
+      where("email", "==", email.toLowerCase()),
+      limit(1)
+    );
+    const pendingSnap = await getDocs(pendingQ);
+    if (!pendingSnap.empty) return true;
+
+    // 3. Check users collection
+    const uQ = query(
+      collection(db, "users"),
+      where("madrassaId", "==", madrassaId),
+      where("email", "==", email.toLowerCase()),
+      limit(1)
+    );
+    const uSnap = await getDocs(uQ);
+    if (!uSnap.empty) return true;
+
+    return false;
+  },
+
   searchParents: async (
     madrassaId: string,
     filters: { search?: string } = {},

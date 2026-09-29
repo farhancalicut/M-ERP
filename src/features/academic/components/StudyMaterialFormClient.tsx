@@ -12,7 +12,7 @@ import { StudyMaterialForm } from "@/features/academic/components/StudyMaterialF
 
 export function StudyMaterialFormClient({ initialData, materialId }: { initialData?: any; materialId?: string }) {
   const router = useRouter();
-  const { userData, user } = useAuthStore();
+  const { userData, user, currentAcademicYear } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -21,10 +21,10 @@ export function StudyMaterialFormClient({ initialData, materialId }: { initialDa
   const [initialDataState, setInitialDataState] = useState<any>(initialData);
 
   useEffect(() => {
-    if ((userData as any)?.madrassaId && (userData as any)?.madrassa?.currentAcademicYear) {
+    if (userData?.madrassaId && currentAcademicYear?.id) {
       const fetchPromises: Promise<any>[] = [
-        classService.getClasses((userData as any).madrassaId, (userData as any).madrassa.currentAcademicYear),
-        subjectService.getSubjects((userData as any).madrassaId, (userData as any).madrassa.currentAcademicYear)
+        classService.getClasses(userData.madrassaId, "ALL", undefined, 500),
+        subjectService.getSubjects(userData.madrassaId, "ALL", undefined, 500)
       ];
 
       if (materialId && !initialData) {
@@ -32,27 +32,27 @@ export function StudyMaterialFormClient({ initialData, materialId }: { initialDa
       }
 
       Promise.all(fetchPromises).then((results) => {
-        setClasses(results[0]);
-        setSubjects(results[1]);
+        setClasses(results[0]?.classes || []);
+        setSubjects(results[1]?.subjects || []);
         if (results[2]) {
           setInitialDataState(results[2]);
         }
         setLoadingData(false);
       });
     }
-  }, [userData, materialId, initialData]);
+  }, [userData, materialId, initialData, currentAcademicYear]);
 
   const handleSubmit = async (data: StudyMaterialFormValues) => {
-    if (!(userData as any)?.madrassaId || !user) return;
+    if (!userData?.madrassaId || !user || !currentAcademicYear?.id) return;
     try {
       setIsLoading(true);
       if (materialId) {
         await studyMaterialService.updateMaterial(materialId, data, user.uid);
-        toast.success("Study Material updated successfully");
+        toast.success("Study material updated successfully");
       } else {
         await studyMaterialService.createMaterial(
-          (userData as any).madrassaId,
-          (userData as any).madrassa.currentAcademicYear,
+          userData.madrassaId,
+          currentAcademicYear.id,
           data,
           user.uid
         );

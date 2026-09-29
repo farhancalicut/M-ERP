@@ -50,7 +50,13 @@ export function NoticeFormClient({ initialData, onSuccess, trigger }: NoticeForm
           status: data.status,
         });
         if (data.status === "PUBLISHED" && initialData?.status !== "PUBLISHED") {
-            await noticeService.publishNotice(initialData!.id, userData.uid);
+            await noticeService.publishNotice(initialData!.id, userData.uid, {
+              ...initialData,
+              ...data,
+              madrassaId: userData.madrassaId,
+              targetRoles: data.targetRoles as any[],
+              expiryDate: Timestamp.fromDate(data.expiryDate),
+            } as any);
         }
       } else {
         const noticeId = await noticeService.createNotice({
@@ -66,7 +72,13 @@ export function NoticeFormClient({ initialData, onSuccess, trigger }: NoticeForm
           status: data.status,
         });
         if (data.status === "PUBLISHED") {
-          await noticeService.publishNotice(noticeId, userData.uid);
+          await noticeService.publishNotice(noticeId, userData.uid, {
+            madrassaId: userData.madrassaId,
+            title: data.title,
+            description: data.description,
+            targetRoles: data.targetRoles as any[],
+            pinned: data.pinned,
+          } as any);
         }
       }
 

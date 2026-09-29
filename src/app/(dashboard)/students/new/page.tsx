@@ -44,11 +44,13 @@ export default function NewStudentPage() {
         ...(data.identityMark !== undefined ? { identityMark: data.identityMark } : {}),
         ...(data.majorAchievements !== undefined ? { majorAchievements: data.majorAchievements } : {}),
         ...(data.admissionFeeAmount !== undefined ? { admissionFeeAmount: data.admissionFeeAmount } : {}),
+        ...(data.admissionFeeCategoryId !== undefined ? { admissionFeeCategoryId: data.admissionFeeCategoryId } : {}),
         ...(data.admissionFeePaymentMethod !== undefined ? { admissionFeePaymentMethod: data.admissionFeePaymentMethod } : {}),
       });
 
       setAdmittedStudentName(result.student.name);
       setCredentials(result.credentials || null);
+      localStorage.removeItem("student_admission_draft");
       setModalOpen(true);
     } catch (err: unknown) {
       console.error(err);

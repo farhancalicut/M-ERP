@@ -168,7 +168,7 @@ export const classService = {
         if (oldClass.classTeacherId) {
           oldUserDoc = await transaction.get(doc(db, "users", oldClass.classTeacherId));
         }
-        if (data.classTeacherId) {
+        if (data.classTeacherId && typeof data.classTeacherId === 'string') {
           newUserDoc = await transaction.get(doc(db, "users", data.classTeacherId));
         }
       }

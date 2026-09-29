@@ -77,7 +77,7 @@ export default function StudentsPage() {
           )}
         </div>
 
-        <StudentFilters onSearch={setFilters} />
+        <StudentFilters onSearch={setFilters} classes={classes} />
         
         {loading ? (
           <div className="py-8 text-center text-muted-foreground">Loading students...</div>

@@ -8,9 +8,10 @@ import { paymentService } from "@/features/fees/services/paymentService";
 import { classService } from "@/features/academic/services/classService";
 import { Student, StudentFee, Class } from "@/types/schema";
 import { toast } from "sonner";
-import { Loader2, Banknote, Landmark, Smartphone, CreditCard } from "lucide-react";
+import { Loader2, Banknote, Landmark, Smartphone, CreditCard, AlertCircle, CheckCircle2, MinusCircle } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { format } from "date-fns";
+import { waiverService } from "@/features/fees/services/waiverService";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,10 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK_TRANSFER" | "CHEQUE" | "UPI">("CASH");
   const [remarks, setRemarks] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showWaiverDialog, setShowWaiverDialog] = useState(false);
+  const [waiverReason, setWaiverReason] = useState("");
+  const [waiverAmount, setWaiverAmount] = useState("");
+  const [isWaiving, setIsWaiving] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !studentId || !academicYearId || !userData?.madrassaId) return;
@@ -85,6 +90,10 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
 
   const handleFeeSelect = (feeId: string) => {
     setSelectedFeeId(feeId);
+    if (feeId === "DONATION") {
+      setAmount("");
+      return;
+    }
     const fee = outstandingFees.find(f => f.id === feeId);
     if (fee) {
       setAmount(fee.dueAmount.toString());
@@ -92,14 +101,16 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
   };
 
   const handleCollect = async () => {
-    if (!userData || !academicYearId || !selectedFee || !student) return;
+    if (!userData || !academicYearId || !student || !selectedFeeId) return;
     const numAmount = parseFloat(amount);
     
     if (isNaN(numAmount) || numAmount <= 0) {
       toast.error("Please enter a valid amount.");
       return;
     }
-    if (numAmount > selectedFee.dueAmount) {
+
+    const isDonation = selectedFeeId === "DONATION";
+    if (!isDonation && selectedFee && numAmount > selectedFee.dueAmount) {
       toast.error(`Amount cannot exceed the due amount of ₹${selectedFee.dueAmount}`);
       return;
     }
@@ -111,8 +122,8 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
         studentId,
         student.parentId,
         academicYearId,
-        selectedFee.feeCategoryId,
-        selectedFee.id as string,
+        isDonation ? "DONATION" : selectedFee!.feeCategoryId,
+        isDonation ? "DONATION" : selectedFee!.id as string,
         numAmount,
         paymentMethod as any,
         userData.uid,
@@ -129,7 +140,36 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
     }
   };
 
+  const canWaive = userData?.role === "MANAGEMENT" || userData?.role === "PRINCIPAL";
+
+  const handleWaive = async () => {
+    if (!selectedFee || !userData?.uid) return;
+    if (!waiverReason.trim()) { toast.error("Please provide a reason for the waiver."); return; }
+    const wAmount = waiverAmount ? parseFloat(waiverAmount) : undefined;
+    try {
+      setIsWaiving(true);
+      await waiverService.waiveFee(
+        studentId,
+        academicYearId,
+        selectedFee.id as string,
+        userData.uid,
+        waiverReason,
+        wAmount
+      );
+      toast.success("Fee waived successfully!");
+      setShowWaiverDialog(false);
+      setWaiverReason("");
+      setWaiverAmount("");
+      onClose();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to waive fee");
+    } finally {
+      setIsWaiving(false);
+    }
+  };
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white dark:bg-slate-900">
         <DialogHeader className="px-6 py-4 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
@@ -153,9 +193,10 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
                   <SelectValue placeholder="Select a fee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {outstandingFees.length === 0 ? (
-                    <div className="p-2 text-sm text-slate-500 dark:text-slate-400">No outstanding dues.</div>
-                  ) : (
+                  <SelectItem value="DONATION" className="font-bold text-teal-600 dark:text-teal-400">
+                    Donate / Custom Payment
+                  </SelectItem>
+                  {outstandingFees.length > 0 && (
                     outstandingFees.map((fee) => (
                       <SelectItem key={fee.id} value={fee.id as string} className="font-medium">
                         {fee.feeName} — ₹{fee.dueAmount.toLocaleString()} due
@@ -168,13 +209,23 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">Amount (₹)</Label>
+                <Label className="text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">Amount (Rs.)</Label>
                 <Input 
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="h-11 font-semibold text-slate-800 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700"
                 />
+                {selectedFee && parseFloat(amount) > 0 && parseFloat(amount) < selectedFee.dueAmount && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Partial payment — Rs.{(selectedFee.dueAmount - parseFloat(amount)).toFixed(2)} will remain due
+                  </p>
+                )}
+                {selectedFee && parseFloat(amount) === selectedFee.dueAmount && (
+                  <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Full payment
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider">Date</Label>
@@ -229,9 +280,19 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
           <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="font-semibold h-11 w-full sm:w-auto dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
             Cancel
           </Button>
+          {canWaive && selectedFee && selectedFeeId !== "DONATION" && (
+            <Button 
+              variant="outline"
+              onClick={() => setShowWaiverDialog(true)}
+              disabled={isSubmitting}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 font-semibold h-11 w-full sm:w-auto"
+            >
+              <MinusCircle className="mr-2 h-4 w-4" /> Waive Fee
+            </Button>
+          )}
           <Button 
             onClick={handleCollect} 
-            disabled={isSubmitting || !selectedFee}
+            disabled={isSubmitting || !selectedFeeId}
             className="bg-teal-700 hover:bg-teal-800 text-white shadow-sm font-semibold h-11 w-full sm:w-auto px-8"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -240,5 +301,37 @@ export function RecordPaymentSheet({ isOpen, onClose, studentId, academicYearId 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Waiver Dialog */}
+    {showWaiverDialog && (
+      <Dialog open={showWaiverDialog} onOpenChange={setShowWaiverDialog}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Waive Fee</DialogTitle>
+            <DialogDescription>
+              Waiving: <strong>{selectedFee?.feeName}</strong> — Due: Rs.{selectedFee?.dueAmount.toLocaleString()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Waiver Amount (Rs.) — leave blank to waive full due</Label>
+              <Input type="number" placeholder={`${selectedFee?.dueAmount} (full)`} value={waiverAmount} onChange={e => setWaiverAmount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Reason *</Label>
+              <Textarea placeholder="e.g. Financial hardship, scholarship, director approval" value={waiverReason} onChange={e => setWaiverReason(e.target.value)} className="resize-none h-20" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWaiverDialog(false)}>Cancel</Button>
+            <Button onClick={handleWaive} disabled={isWaiving} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {isWaiving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm Waiver
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+  </>
   );
 }

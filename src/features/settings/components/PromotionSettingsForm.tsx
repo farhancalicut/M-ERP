@@ -62,18 +62,22 @@ export function PromotionSettingsForm() {
   const onSubmit = async (data: PromotionSettingsFormData) => {
     if (!userData?.madrassaId || !userData?.id) return;
     
+    let isNavigating = false;
     setLoading(true);
     try {
       await promotionSettingsService.updatePromotionSettings(userData.madrassaId, data, userData.id);
       toast.success("Promotion settings saved successfully");
       
       if (isSetupIncomplete) {
-        router.push("/settings/fees");
+        isNavigating = true;
+        router.push("/settings/fees-management");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update settings");
     } finally {
-      setLoading(false);
+      if (!isNavigating) {
+        setLoading(false);
+      }
     }
   };
 
@@ -123,7 +127,7 @@ export function PromotionSettingsForm() {
               )}
             </Button>
             {!isSetupIncomplete && (
-              <Button type="button" variant="outline" onClick={() => router.push("/settings/fees")}>
+              <Button type="button" variant="outline" onClick={() => { setLoading(true); router.push("/settings/fees-management"); }}>
                 Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

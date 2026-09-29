@@ -13,6 +13,7 @@ import { Class, User } from "@/types/schema";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check } from "lucide-react";
 
 interface NoticeFormProps {
   onSubmit: (data: NoticeFormValues) => Promise<void>;
@@ -104,22 +105,53 @@ export function NoticeForm({ onSubmit, onCancel, classes = [], students = [], de
           </Select>
         </FormField>
         
-        {classes.length > 0 && (
-          <FormField label="Target Classes (Optional)" error={errors.targetClasses?.message as string | undefined}>
-            <div className="flex flex-col gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
-              {classes.map(cls => (
-                <label key={cls.id} className="flex items-center space-x-2">
-                  <input 
-                    type="checkbox" 
-                    checked={targetClasses.includes(cls.id!)}
-                    onChange={() => toggleArrayItem("targetClasses", targetClasses, cls.id!)}
-                  />
-                  <span className="text-sm">{cls.name}</span>
-                </label>
-              ))}
+        {classes.length > 0 && (() => {
+          const allSelected = classes.length > 0 && classes.every(c => c.id && targetClasses.includes(c.id));
+          const handleToggleAll = (e: React.MouseEvent) => {
+            e.preventDefault();
+            if (allSelected) {
+              setValue("targetClasses", []);
+            } else {
+              setValue("targetClasses", classes.map(c => c.id!).filter(Boolean));
+            }
+          };
+
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium leading-none">Target Classes (Optional)</span>
+                <div
+                  onClick={handleToggleAll}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded border transition-colors select-none cursor-pointer ${
+                    allSelected
+                      ? "bg-primary/10 border-primary text-primary hover:bg-primary/20"
+                      : "bg-muted/50 border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                    allSelected ? "bg-primary border-primary text-primary-foreground" : "border-slate-300 dark:border-slate-700 bg-background"
+                  }`}>
+                    {allSelected && <Check className="w-2.5 h-2.5" />}
+                  </div>
+                  <span>Mark All ({targetClasses.length}/{classes.length})</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                {classes.map(cls => (
+                  <label key={cls.id} className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      checked={targetClasses.includes(cls.id!)}
+                      onChange={() => toggleArrayItem("targetClasses", targetClasses, cls.id!)}
+                    />
+                    <span className="text-sm">{cls.name}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.targetClasses?.message && <p className="text-sm text-red-500">{errors.targetClasses.message as string}</p>}
             </div>
-          </FormField>
-        )}
+          );
+        })()}
       </FormSection>
       
       <div className="flex items-center space-x-2 pt-2 px-2">

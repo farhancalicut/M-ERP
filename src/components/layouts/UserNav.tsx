@@ -42,7 +42,16 @@ export function UserNav() {
 
   if (!userData) return null;
 
-  const roleText = userData.role === 'SUPER_ADMIN' ? 'System Administrator' : 'Principal Office';
+  const roleLabels: Record<string, string> = {
+    'SUPER_ADMIN': 'System Administrator',
+    'MANAGEMENT': 'Management',
+    'PRINCIPAL': 'Principal Office',
+    'TEACHER': 'Teacher',
+    'PARENT': 'Parent',
+    'ALUMNI': 'Alumni'
+  };
+
+  const roleText = roleLabels[userData.role] || userData.role;
   const nameText = userData.displayName || "Admin User";
 
   return (

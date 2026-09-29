@@ -64,10 +64,10 @@ export function HomeworkForm({ initialData, onSubmit, isLoading, classes, subjec
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Class</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || classes.length === 0}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
+                      <SelectValue placeholder={classes.length === 0 ? "No assigned classes available" : "Select class"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -76,6 +76,11 @@ export function HomeworkForm({ initialData, onSubmit, isLoading, classes, subjec
                     ))}
                   </SelectContent>
                 </Select>
+                {classes.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    No assigned classes found. Teachers can only create homework for their assigned classes.
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -189,7 +194,7 @@ export function HomeworkForm({ initialData, onSubmit, isLoading, classes, subjec
 
         <div className="space-y-4 border rounded-md p-4">
           <div className="flex items-center justify-between">
-            <FormLabel>Attachments (Optional, Max 5)</FormLabel>
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Attachments (Optional, Max 5)</label>
             <FileUpload onUpload={handleUpload} maxSizeMB={5} label="Upload Attachment" />
           </div>
           {form.formState.errors.attachments && (
@@ -215,7 +220,7 @@ export function HomeworkForm({ initialData, onSubmit, isLoading, classes, subjec
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {initialData ? "Update Homework" : "Publish Homework"}
+            <span>{initialData ? "Update Homework" : "Publish Homework"}</span>
           </Button>
         </div>
       </form>

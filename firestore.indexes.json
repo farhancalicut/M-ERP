@@ -1,0 +1,57 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "paymentDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "paymentDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studentFees",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "academicYearId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feePayments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "paymentDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "donationPledges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "alumniId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "donationPledges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "madrassaId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

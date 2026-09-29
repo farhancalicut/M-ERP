@@ -1,14 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { navigationConfig } from "@/config/navigation";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronUp, User, LogOut } from "lucide-react";
+import { ProfileModal } from "@/features/settings/components/ProfileModal";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { userData, madrassa, isInitialized } = useAuthStore();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   if (!isInitialized || !userData) {
     return (
@@ -24,8 +36,9 @@ export function Sidebar() {
   const navItems = navigationConfig[role] || [];
 
   return (
-    <aside className="w-64 border-r border-border h-full bg-white dark:bg-slate-900 flex flex-col shrink-0">
-      <Link href={navItems[0]?.href || "/"} className="flex items-center gap-3 px-6 py-8">
+    <>
+      <aside className="w-64 border-r border-border h-full bg-white dark:bg-slate-900 flex flex-col shrink-0">
+        <Link href={navItems[0]?.href || "/"} className="flex items-center gap-3 px-6 py-8">
         <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
           <span className="text-xl font-bold text-primary-foreground">M</span>
         </div>
@@ -56,13 +69,57 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="px-4 py-4 mb-2">
+      <div className="px-4 py-4 mb-2 mt-auto">
         <div className="border-t border-slate-100 dark:border-slate-800/50 my-2 pt-2"></div>
-        <div className="px-3">
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{userData.email}</p>
-          <div className="text-xs font-semibold text-slate-800 dark:text-slate-300 mt-0.5">{role}</div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left outline-none">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-300 truncate">
+                  {userData.displayName || "User"}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {userData.email}
+                </p>
+              </div>
+              <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56 mb-2" align="start" side="top">
+            <DropdownMenuItem 
+              onClick={() => {
+                if (userData.role === "PRINCIPAL") {
+                  router.push("/principal/profile");
+                } else {
+                  setIsProfileModalOpen(true);
+                }
+              }} 
+              className="cursor-pointer"
+            >
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={async () => {
+                try {
+                  const { authService } = await import("@/features/auth/services/authService");
+                  await authService.logout();
+                  router.push("/login");
+                } catch (error) {
+                  console.error("Logout failed", error);
+                }
+              }} 
+              className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
+      <ProfileModal open={isProfileModalOpen} onOpenChange={setIsProfileModalOpen} />
+    </>
   );
 }

@@ -15,8 +15,6 @@ const tabs = [
   { name: "Promotion", href: "/settings/promotion", roles: ["MANAGEMENT", "PRINCIPAL"] },
 
   { name: "Fee Management", href: "/settings/fees-management", roles: ["MANAGEMENT"] },
-  { name: "Appearance", href: "/settings/appearance", roles: ["MANAGEMENT", "PRINCIPAL", "TEACHER", "PARENT", "ALUMNI"] },
-  { name: "Profile", href: "/settings/profile", roles: ["MANAGEMENT", "PRINCIPAL", "TEACHER", "PARENT", "ALUMNI"] },
   { name: "Subscription", href: "/settings/subscription", roles: ["MANAGEMENT"] },
 ];
 

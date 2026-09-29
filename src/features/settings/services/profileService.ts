@@ -15,7 +15,7 @@ export const profileService = {
     return null;
   },
 
-  async updateProfile(userId: string, data: Partial<Pick<User, "displayName" | "email" | "photoUrl">>): Promise<void> {
+  async updateProfile(userId: string, data: Partial<User>): Promise<void> {
     const docRef = doc(db, "users", userId);
     await updateDoc(docRef, {
       ...data,

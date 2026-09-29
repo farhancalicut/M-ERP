@@ -5,22 +5,33 @@ import { useAuthStore } from "@/stores/authStore";
 import { academicYearService } from "@/features/academic/services/academicYearService";
 import { AcademicYear } from "@/types/schema";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Plus, CheckCircle2, Trash2 } from "lucide-react";
+import { Loader2, Plus, CheckCircle2, Trash2, CheckSquare, ArrowRight } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function AcademicSettingsForm() {
   const { userData, madrassa } = useAuthStore();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [navigatingNext, setNavigatingNext] = useState(false);
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [newYearName, setNewYearName] = useState("");
   const [newYearStartDate, setNewYearStartDate] = useState("");
   const [newYearEndDate, setNewYearEndDate] = useState("");
   const [isSubmittingYear, setIsSubmittingYear] = useState(false);
+
+  // Finish Year Dialog State
+  const [finishingYear, setFinishingYear] = useState<AcademicYear | null>(null);
+  const [confirmMarks, setConfirmMarks] = useState(false);
+  const [confirmAttendance, setConfirmAttendance] = useState(false);
+  const [confirmFees, setConfirmFees] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -89,19 +100,45 @@ export function AcademicSettingsForm() {
 
 
 
-  const activateYear = async (year: AcademicYear) => {
-    if (!userData?.madrassaId || !userData?.id) return;
+  const handleFinishYearClick = (year: AcademicYear) => {
+    setFinishingYear(year);
+    setConfirmMarks(false);
+    setConfirmAttendance(false);
+    setConfirmFees(false);
+  };
+
+  const confirmFinishYear = async () => {
+    if (!finishingYear || !userData?.madrassaId || !userData?.id) return;
+    
+    // Find the next upcoming year to activate
+    const upcomingYears = years.filter(y => y.status === "UPCOMING").sort((a, b) => (a.startDate as any).toMillis() - (b.startDate as any).toMillis());
+    const nextYear = (upcomingYears.length > 0 ? upcomingYears[0] : null) as AcademicYear | null;
+
     try {
-      await academicYearService.activateAcademicYear(userData.madrassaId, year, userData.id);
-      toast.success("Academic year activated");
+      await academicYearService.finishAcademicYear(userData.madrassaId, finishingYear.id!, nextYear, userData.id);
+      toast.success("Academic year finished successfully!");
+      
       // Update local state
-      setYears(years.map(y => ({
-        ...y,
-        status: y.id === year.id ? "ACTIVE" : (y.status === "ACTIVE" ? "COMPLETED" : y.status),
-        isCurrent: y.id === year.id
-      })));
+      const updatedYears = years.map(y => {
+        if (y.id === finishingYear.id) {
+          return { ...y, status: "COMPLETED" as const, isCurrent: false };
+        }
+        if (nextYear && y.id === nextYear.id) {
+          return { ...y, status: "ACTIVE" as const, isCurrent: true };
+        }
+        return y;
+      });
+      setYears(updatedYears);
+      
+      if (nextYear) {
+        useAuthStore.getState().setCurrentAcademicYear({ id: nextYear.id!, name: nextYear.name });
+      } else {
+        useAuthStore.getState().setCurrentAcademicYear(null);
+      }
+      
+      setFinishingYear(null);
     } catch (error: any) {
-      toast.error(error.message || "Failed to activate year");
+      toast.error(error.message || "Failed to finish year");
     }
   };
 
@@ -195,9 +232,10 @@ export function AcademicSettingsForm() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right space-x-2">
-                        {year.status !== "ACTIVE" && (
-                          <Button variant="outline" size="sm" onClick={() => activateYear(year)}>
-                            Set Active
+                        {year.status === "ACTIVE" && (
+                          <Button variant="outline" size="sm" onClick={() => handleFinishYearClick(year)}>
+                            <CheckSquare className="mr-2 h-4 w-4 text-blue-500" />
+                            Finish Current Year
                           </Button>
                         )}
                         <Button variant="ghost" size="sm" onClick={() => deleteYear(year)}>
@@ -212,6 +250,53 @@ export function AcademicSettingsForm() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!finishingYear} onOpenChange={(open) => !open && setFinishingYear(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Finish Current Academic Year</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to finish the academic year <strong>{finishingYear?.name}</strong>?
+              This will lock the current year's records and prepare the system for the next year.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm font-medium">Please confirm the following:</p>
+            <div className="flex items-start space-x-3">
+              <Checkbox id="chk-marks" checked={confirmMarks} onCheckedChange={(val) => setConfirmMarks(!!val)} />
+              <Label htmlFor="chk-marks" className="leading-snug">All final exam marks have been entered and verified.</Label>
+            </div>
+            <div className="flex items-start space-x-3">
+              <Checkbox id="chk-attendance" checked={confirmAttendance} onCheckedChange={(val) => setConfirmAttendance(!!val)} />
+              <Label htmlFor="chk-attendance" className="leading-snug">All attendance records for the year are complete.</Label>
+            </div>
+            <div className="flex items-start space-x-3">
+              <Checkbox id="chk-fees" checked={confirmFees} onCheckedChange={(val) => setConfirmFees(!!val)} />
+              <Label htmlFor="chk-fees" className="leading-snug">All fee collections have been reconciled.</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFinishingYear(null)}>Cancel</Button>
+            <Button 
+              variant="default" 
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={!confirmMarks || !confirmAttendance || !confirmFees} 
+              onClick={confirmFinishYear}
+            >
+              Finish Year
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {madrassa?.isSetupComplete === false && (
+        <div className="flex justify-end mt-8 pt-4 border-t">
+          <Button type="button" onClick={() => { setNavigatingNext(true); router.push("/settings/classes"); }} disabled={navigatingNext}>
+            {navigatingNext ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {navigatingNext ? "Loading..." : "Save & Continue"} {!navigatingNext && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

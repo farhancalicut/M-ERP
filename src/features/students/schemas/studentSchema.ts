@@ -24,6 +24,7 @@ export const studentAdmissionSchema = z.object({
   
   // Admission Fee
   admissionFeeAmount: z.coerce.number().min(0, "Amount must be at least 0").optional(),
+  admissionFeeCategoryId: z.string().optional(),
   admissionFeePaymentMethod: z.enum(["CASH", "BANK", "UPI", "OTHER", "PENDING"]).optional().default("PENDING"),
 });
 

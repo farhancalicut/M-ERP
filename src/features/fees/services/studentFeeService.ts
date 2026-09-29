@@ -29,7 +29,8 @@ export const studentFeeService = {
     academicYearId: string,
     monthlyFee: number = 0,
     initialFees: AssignedFee[] = [],
-    transaction?: Transaction
+    transaction?: Transaction,
+    classId?: string
   ): Promise<void> => {
     const docId = `${studentId}_${academicYearId}`;
     const docRef = doc(db, COLLECTION, docId as string);
@@ -46,7 +47,8 @@ export const studentFeeService = {
       totalAmount: summary.totalAmount,
       paidAmount: summary.paidAmount,
       dueAmount: summary.dueAmount,
-      status: summary.status
+      status: summary.status,
+      ...(classId ? { classId } : {}),
     };
 
     if (transaction) {
@@ -69,6 +71,24 @@ export const studentFeeService = {
       return { id: snap.id, ...snap.data() } as StudentFee;
     }
     return null;
+  },
+
+  /**
+   * Cost-optimized: Fetch ALL studentFees for a madrassa/year in ONE query.
+   * Replaces the N+1 pattern of calling getStudentFees per student.
+   * Cost: 1 read (vs N reads previously).
+   */
+  getAllStudentFees: async (
+    madrassaId: string,
+    academicYearId: string
+  ): Promise<StudentFee[]> => {
+    const q = query(
+      collection(db, COLLECTION),
+      where("madrassaId", "==", madrassaId),
+      where("academicYearId", "==", academicYearId)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }) as StudentFee);
   },
 
   /**

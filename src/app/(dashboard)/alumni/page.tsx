@@ -12,6 +12,9 @@ import { GraduationCap, Award, BookOpen, Clock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { NoticeBoardWidget } from "@/features/notifications/components/NoticeBoardWidget";
+import { DonationSettingsDialog } from "@/features/finance/components/DonationSettingsDialog";
+import { AlumniPledgesList } from "@/features/finance/components/AlumniPledgesList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AlumniDirectoryPage() {
   const { userData } = useAuthStore();
@@ -25,8 +28,10 @@ export default function AlumniDirectoryPage() {
     if (!madrassaId) return;
     try {
       setLoading(true);
-      const res = await alumniService.getAlumniList(madrassaId, undefined, 100);
-      setAlumni(res.alumni);
+      if (!isAlumni) {
+        const res = await alumniService.getAlumniList(madrassaId, undefined, 100);
+        setAlumni(res.alumni);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load alumni");
     } finally {
@@ -99,20 +104,35 @@ export default function AlumniDirectoryPage() {
           <h1 className="text-3xl font-bold tracking-tight">Alumni Directory</h1>
           <p className="text-muted-foreground">Manage graduated students and their accounts.</p>
         </div>
+        <DonationSettingsDialog />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Registered Alumni</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-             <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-          ) : (
-             <AlumniTable data={alumni} onRefresh={loadData} />
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="directory" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="directory">Registered Alumni</TabsTrigger>
+          <TabsTrigger value="pledges">Donation Pledges</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="directory">
+          <Card>
+            <CardContent className="pt-6">
+              {loading ? (
+                 <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+              ) : (
+                 <AlumniTable data={alumni} onRefresh={loadData} />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="pledges">
+          <Card>
+            <CardContent className="pt-6">
+              <AlumniPledgesList />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

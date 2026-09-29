@@ -108,17 +108,32 @@ export const examService = {
       updatedBy: createdBy
     };
     
-    // Quick uniqueness check
-    const q = query(
+    // Quick uniqueness check for name
+    const qName = query(
       collection(db, COLLECTION),
       where("madrassaId", "==", data.madrassaId),
       where("academicYearId", "==", data.academicYearId),
       where("name", "==", data.name),
       limit(1)
     );
-    const existing = await getDocs(q);
-    if (!existing.empty) {
+    const existingName = await getDocs(qName);
+    if (!existingName.empty) {
       throw new Error(`An exam with name ${data.name} already exists.`);
+    }
+
+    // Uniqueness check for Final Exam
+    if (data.examType === "Final") {
+      const qFinal = query(
+        collection(db, COLLECTION),
+        where("madrassaId", "==", data.madrassaId),
+        where("academicYearId", "==", data.academicYearId),
+        where("examType", "==", "Final"),
+        limit(1)
+      );
+      const existingFinal = await getDocs(qFinal);
+      if (!existingFinal.empty) {
+        throw new Error("A Final Exam already exists for this academic year. Only one Final Exam is allowed.");
+      }
     }
 
     await runTransaction(db, async (transaction) => {
@@ -136,16 +151,32 @@ export const examService = {
     
     // Check if name is being updated for duplicates
     if (data.name && data.madrassaId && data.academicYearId) {
-       const q = query(
+       const qName = query(
         collection(db, COLLECTION),
         where("madrassaId", "==", data.madrassaId),
         where("academicYearId", "==", data.academicYearId),
         where("name", "==", data.name),
         limit(1)
       );
-      const existing = await getDocs(q);
-      if (!existing.empty && existing.docs[0]?.id !== id) {
+      const existingName = await getDocs(qName);
+      if (!existingName.empty && existingName.docs[0]?.id !== id) {
         throw new Error(`An exam with name ${data.name} already exists.`);
+      }
+    }
+
+    // Check if examType is being updated to Final
+    if (data.examType === "Final" && data.madrassaId && data.academicYearId) {
+      const qFinal = query(
+        collection(db, COLLECTION),
+        where("madrassaId", "==", data.madrassaId),
+        where("academicYearId", "==", data.academicYearId),
+        where("examType", "==", "Final"),
+        limit(2) // Need to check if there is another one besides the current one
+      );
+      const existingFinal = await getDocs(qFinal);
+      const otherFinals = existingFinal.docs.filter(doc => doc.id !== id);
+      if (otherFinals.length > 0) {
+        throw new Error("A Final Exam already exists for this academic year. Only one Final Exam is allowed.");
       }
     }
 

@@ -3,6 +3,13 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = 'force-static';
+
+
+export function generateStaticParams() {
+  return [{ id: '_' }];
+}
+
 export default async function EditAssignmentPage({ params }: { params: { id: string } }) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">

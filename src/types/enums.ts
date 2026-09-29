@@ -35,3 +35,7 @@ export type SubscriptionStatus = 'ACTIVE' | 'EXPIRED' | 'LOCKED';
 export type AuditLogAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'ARCHIVE' | 'LOGIN' | 'LOGOUT' | 'PUBLISH' | 'LOCK' | 'UNLOCK' | 'PROMOTE' | 'PAYMENT' | 'RESULT_PUBLISH';
 export type AuditLogModule = 'Students' | 'Parents' | 'Attendance' | 'Examinations' | 'Results' | 'Promotions' | 'Fees' | 'Settings' | 'Notifications' | 'Users';
 export type PlatformInvoiceStatus = 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type LeaveType = 'SICK' | 'PERSONAL' | 'FAMILY' | 'OTHER';
+export type LeaveRequestType = 'STUDENT' | 'STAFF';

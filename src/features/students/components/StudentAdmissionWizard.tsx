@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CloudinaryUpload } from "@/components/shared/CloudinaryUpload";
-import { CheckCircle2, ChevronRight, ChevronLeft, Search, User, Loader2 } from "lucide-react";
+import { CheckCircle2, ChevronRight, ChevronLeft, Search, User, Loader2, AlertCircle } from "lucide-react";
 import { parentService } from "../services/parentService";
 import { classService } from "@/features/academic/services/classService";
 import { feeCategoryService } from "@/features/fees/services/feeCategoryService";
@@ -50,6 +50,7 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
 
   // Fee State
   const [admissionCategory, setAdmissionCategory] = useState<FeeCategory | null>(null);
+  const [isFeesLoaded, setIsFeesLoaded] = useState(false);
 
   const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<StudentAdmissionData>({
     resolver: zodResolver(studentAdmissionSchema) as any,
@@ -73,6 +74,32 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
     }
 
     const isStepValid = await trigger(fieldsToValidate as any);
+    
+    if (isStepValid && currentStep === 1 && !isParentLocked && userData?.madrassaId) {
+      // User is manually entering guardian details. Check if mobile or email exists.
+      const mobile = getValues("parentMobile");
+      const email = getValues("parentEmail");
+      
+      try {
+        const existingByMobile = await parentService.getParentByMobile(userData.madrassaId, mobile);
+        if (existingByMobile) {
+          toast.error(`Phone number ${mobile} is already registered to another guardian.`);
+          return;
+        }
+        
+        if (email && email !== "noemail@m-erp.com") {
+           const existingByEmail = await parentService.getParentByEmail(userData.madrassaId, email);
+           if (existingByEmail) {
+             toast.error(`Email ${email} is already registered to another guardian.`);
+             return;
+           }
+        }
+      } catch (e) {
+        toast.error("Error validating guardian details.");
+        return;
+      }
+    }
+
     if (isStepValid) {
       setCurrentStep(s => Math.min(s + 1, steps.length - 1));
     }
@@ -124,10 +151,41 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
       });
       feeCategoryService.getFeeCategories(userData.madrassaId).then(res => {
         const admissionCat = res.categories.find(c => c.feeType === "ADMISSION" && c.status === "ACTIVE");
-        if (admissionCat) setAdmissionCategory(admissionCat);
+        if (admissionCat) {
+          setAdmissionCategory(admissionCat);
+          setValue("admissionFeeCategoryId", admissionCat.id);
+        }
+        setIsFeesLoaded(true);
       });
     }
-  }, [userData?.madrassaId]);
+  }, [userData?.madrassaId, setValue]);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const draft = localStorage.getItem("student_admission_draft");
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.dob) parsed.dob = new Date(parsed.dob);
+        if (parsed.admissionDate) parsed.admissionDate = new Date(parsed.admissionDate);
+        Object.keys(parsed).forEach(key => {
+          setValue(key as any, parsed[key]);
+        });
+        toast.info("Draft restored from previous session.");
+      } catch (e) {
+        console.error("Failed to parse draft", e);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save draft to localStorage on change
+  useEffect(() => {
+    const subscription = watch((value) => {
+      localStorage.setItem("student_admission_draft", JSON.stringify(value));
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
 
   // Update admission fee when class changes
   const selectedClassId = watch("classId");
@@ -174,7 +232,15 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
       <div className="p-6 border-b">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Step {currentStep + 1} of 4 — {steps[currentStep]?.title}</h2>
-          <span className="text-sm font-semibold text-muted-foreground">{Math.round(((currentStep) / 3) * 100)}% Completed</span>
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" type="button" onClick={() => {
+              if (confirm("Are you sure you want to clear the form?")) {
+                localStorage.removeItem("student_admission_draft");
+                window.location.reload();
+              }
+            }}>Clear Draft</Button>
+            <span className="text-sm font-semibold text-muted-foreground">{Math.round(((currentStep) / 3) * 100)}% Completed</span>
+          </div>
         </div>
         
         {/* Progress Bar */}
@@ -200,6 +266,15 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
         {error && (
           <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium border border-red-100">
             {error}
+          </div>
+        )}
+        
+        {isFeesLoaded && !admissionCategory && (
+          <div className="mb-6 p-4 bg-orange-50 text-orange-800 rounded-lg text-sm font-medium border border-orange-200 flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2 shrink-0" />
+            <div>
+              <strong>Admission Fee is not configured.</strong> Please go to the Fees Management page and set the Admission Fee before continuing. Your current progress will be saved.
+            </div>
           </div>
         )}
 
@@ -379,13 +454,16 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
              </div>
           </div>
 
+          {/* Hidden Fields */}
+          <input type="hidden" {...register("admissionFeeCategoryId")} />
+
           {/* STEP 4: Payment */}
           <div className={currentStep === 3 ? "block" : "hidden"}>
             <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-800">
               <h4 className="text-sm font-semibold text-primary mb-5">Admission Fee Payment</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField label="Fee Amount (₹)" required error={errors.admissionFeeAmount?.message}>
-                  <Input type="number" {...register("admissionFeeAmount")} />
+                  <Input type="number" {...register("admissionFeeAmount")} readOnly className="bg-muted/50 cursor-not-allowed" />
                 </FormField>
                 
                 <FormField label="Payment Status / Method" required error={errors.admissionFeePaymentMethod?.message}>
@@ -467,7 +545,7 @@ export function StudentAdmissionWizard({ onSubmit, isSubmitting, error }: Studen
             </Button>
             
             {currentStep < steps.length - 1 ? (
-              <Button type="button" onClick={nextStep}>
+              <Button type="button" onClick={nextStep} disabled={currentStep === 3 && !admissionCategory}>
                 Next Step
                 <ChevronRight className="ml-2 h-4 w-4" />
               </Button>

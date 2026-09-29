@@ -26,7 +26,6 @@ const generalSettingsSchema = z.object({
   pincode: z.string().min(4, "Pincode is required"),
   phone: z.string().min(1, "Phone is required"),
   email: z.string().email("Invalid email"),
-  principalName: z.string().min(1, "Principal Name is required"),
 });
 
 type GeneralSettingsFormData = z.infer<typeof generalSettingsSchema>;
@@ -51,7 +50,6 @@ export function GeneralSettingsForm() {
       pincode: "",
       phone: "",
       email: "",
-      principalName: "",
     }
   });
 
@@ -70,7 +68,6 @@ export function GeneralSettingsForm() {
               pincode: settings.pincode || "",
               phone: settings.phone || "",
               email: settings.email || "",
-              principalName: settings.principalName || "",
             });
           } else {
             // Auto-fill from super-admin inputs during onboarding
@@ -83,7 +80,6 @@ export function GeneralSettingsForm() {
               pincode: (madrassa as any).pincode || "",
               phone: madrassa.contactNumber || "",
               email: madrassa.email || "",
-              principalName: "",
             });
           }
         } catch (error) {
@@ -99,6 +95,7 @@ export function GeneralSettingsForm() {
   const onSubmit = async (data: GeneralSettingsFormData) => {
     if (!userData?.madrassaId || !userData?.id) return;
     
+    let isNavigating = false;
     setLoading(true);
     try {
       await Promise.all([
@@ -113,12 +110,15 @@ export function GeneralSettingsForm() {
       toast.success("General settings saved successfully");
       
       if (isSetupIncomplete) {
-        router.push("/settings/grades");
+        isNavigating = true;
+        router.push("/settings/academic");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update settings");
     } finally {
-      setLoading(false);
+      if (!isNavigating) {
+        setLoading(false);
+      }
     }
   };
 
@@ -240,11 +240,6 @@ export function GeneralSettingsForm() {
                 {form.formState.errors.email && <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>}
               </div>
 
-              <div className="space-y-2 md:col-span-2">
-                <Label>Principal Name</Label>
-                <Input {...form.register("principalName")} />
-                {form.formState.errors.principalName && <p className="text-sm text-red-500">{form.formState.errors.principalName.message}</p>}
-              </div>
             </div>
 
             <div className="flex justify-end pt-4 space-x-4">
@@ -257,7 +252,7 @@ export function GeneralSettingsForm() {
                 )}
               </Button>
               {!isSetupIncomplete && (
-                <Button type="button" variant="outline" onClick={() => router.push("/settings/grades")}>
+                <Button type="button" variant="outline" onClick={() => { setLoading(true); router.push("/settings/academic"); }}>
                   Next <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               )}

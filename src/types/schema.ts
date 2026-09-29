@@ -2,13 +2,15 @@ import { Timestamp } from "firebase/firestore";
 import { Role, Status, FeeType, FeeStatus, PaymentMethod, PaymentStatus, ReceiverType, Gender, Relationship, 
 AcademicYearStatus, AssignmentStatus, ExamStatus, MarksStatus, ResultStatus, PromotionAction, PromotionStatus, 
 HomeworkStatus, AcademicAssignmentStatus, StudyMaterialStatus, SubmissionStatus, NoticeStatus, NotificationStatus, 
-NotificationType, NotificationPriority, NotificationIcon, SubscriptionStatus, AuditLogAction, AuditLogModule, PlatformInvoiceStatus } from "./enums";
+NotificationType, NotificationPriority, NotificationIcon, SubscriptionStatus, AuditLogAction, AuditLogModule, PlatformInvoiceStatus,
+LeaveStatus, LeaveType, LeaveRequestType } from "./enums";
 import { UserPermissions } from "./permissions";
 
 export type { Role, Status, FeeType, FeeStatus, PaymentMethod, PaymentStatus, ReceiverType, Gender, Relationship, 
 AcademicYearStatus, AssignmentStatus, ExamStatus, MarksStatus, ResultStatus, PromotionAction, PromotionStatus, 
 HomeworkStatus, AcademicAssignmentStatus, StudyMaterialStatus, SubmissionStatus, NoticeStatus, NotificationStatus, 
-NotificationType, NotificationPriority, NotificationIcon, SubscriptionStatus, AuditLogAction, AuditLogModule, PlatformInvoiceStatus, UserPermissions };
+NotificationType, NotificationPriority, NotificationIcon, SubscriptionStatus, AuditLogAction, AuditLogModule, PlatformInvoiceStatus, UserPermissions,
+LeaveStatus, LeaveType, LeaveRequestType };
 
 export interface BaseEntity {
   id?: string;
@@ -31,10 +33,15 @@ export interface Madrassa extends BaseEntity {
   contactNumber: string;
   email: string;
   subscriptionPlan: string;
-  subscriptionStatus?: SubscriptionStatus; // Phase 17
+  subscriptionStatus?: SubscriptionStatus;
   subscriptionExpiry?: Timestamp;
-  isSetupComplete?: boolean; // New Manager setup flow
+  isSetupComplete?: boolean;
   logoUrl?: string;
+  lastFeeGenerationDate?: string;
+  // Platform analytics counters (denormalized from counters collection for Super Admin)
+  studentCount?: number;
+  staffCount?: number;
+  parentCount?: number;
 }
 
 // 2. users
@@ -50,6 +57,7 @@ export interface User extends BaseEntity {
   assignedClassIds?: string[]; // Phase 14
   assignedSubjects?: string[]; // Phase 14
   permissions?: UserPermissions; // RBAC
+  userId?: string; // Phase 17: ID used for rules and login (e.g. ALM_STU20260023)
   contactNumber?: string | undefined;
   qualification?: string | undefined;
   specialization?: string | undefined;
@@ -95,7 +103,7 @@ export interface Class extends BaseEntity {
 export interface Subject extends BaseEntity {
   madrassaId: string;
   name: string;
-  code: string;
+  code?: string;
   displayOrder: number;
   classIds: string[]; // Classes where this subject is taught
   defaultTotalMarks: number;
@@ -356,6 +364,8 @@ export interface AssignedFee {
 
 // 17. studentFees
 export interface StudentFee extends Omit<BaseEntity, 'status'> {
+  madrassaId: string;       // tenant isolation
+  classId?: string;         // for class-wise fee generation
   studentId: string;
   parentId: string;
   academicYearId: string;
@@ -385,6 +395,50 @@ export interface FeePayment extends Omit<BaseEntity, 'status'> {
   verifiedBy?: string;
   verifiedAt?: Timestamp;
   rejectionReason?: string;
+  transactionType?: 'FEE' | 'EXPENSE' | 'DONATION'; // for unified payment history
+  sourceId?: string; // ref to expense/donation doc id
+}
+
+export interface Expense extends BaseEntity {
+  madrassaId: string;
+  amount: number;
+  date: Timestamp;
+  description: string;
+  recordedBy: string; // UID of the user who recorded it (Principal/Manager)
+}
+
+export interface Donation extends BaseEntity {
+  madrassaId: string;
+  amount: number;
+  date: Timestamp;
+  donorName: string;
+  donorContact?: string;
+  purpose?: string;
+  paymentMethod: 'CASH' | 'BANK' | 'UPI' | 'OTHER';
+  recordedBy: string;
+  alumniId?: string; // If this donation came from an alumni pledge
+}
+
+export interface DonationPledge extends BaseEntity {
+  madrassaId: string;
+  alumniId: string;
+  amount: number;
+  paymentMethod: 'BANK' | 'UPI' | 'OTHER';
+  transactionId: string;
+  purpose?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  date: Timestamp;
+  processedBy?: string; // UID of management who approved/rejected
+  processedAt?: Timestamp;
+}
+
+export interface DonationSettings {
+  madrassaId: string;
+  title: string;
+  description: string;
+  qrCodeUrl?: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 // 18. gradeConfigs
@@ -448,9 +502,11 @@ export interface HomeworkSubmission extends Omit<BaseEntity, 'status'> {
   madrassaId: string;
   academicYearId: string;
   submittedAt: Timestamp;
+  submissionText?: string;
   attachments?: Attachment[];
   status: SubmissionStatus;
-  teacherRemarks?: string;
+  reviewed?: boolean;
+  remarks?: string;
   reviewedAt?: Timestamp;
   reviewedBy?: string;
 }
@@ -507,6 +563,45 @@ export interface Notification {
   readBy?: string[];
 }
 
+
+
+// 28. Routines (Daily Routine Module)
+export interface RoutineTask {
+  id: string; // generated unique id
+  category?: string; // e.g., 'Quran', 'Prayer', 'Character', 'Academic', 'Hifz'
+  name: string;
+}
+
+export interface RoutineTemplate extends BaseEntity {
+  madrassaId: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  tasks: RoutineTask[];
+  classIds: string[]; // classes this template applies to
+  cutoffTime?: string; // e.g., '23:59' (24-hour format)
+}
+
+export type RoutineTaskStatus = 'DONE' | 'MISSED' | 'PARTIAL';
+
+export interface RoutineTaskLog {
+  taskId: string;
+  status: RoutineTaskStatus;
+  note?: string;
+}
+
+export interface DailyRoutineLog extends BaseEntity {
+  madrassaId: string;
+  academicYearId: string;
+  studentId: string;
+  classId: string;
+  templateId: string; // The ID of the template active at the time
+  date: string; // YYYY-MM-DD format
+  tasks: Record<string, RoutineTaskLog>; // Keyed by RoutineTask.id
+  submitted: boolean;
+  submittedAt?: Timestamp;
+}
+
 export interface Alumni extends BaseEntity {
   madrassaId: string;
   studentId: string;
@@ -532,13 +627,15 @@ export interface Promotion extends Omit<BaseEntity, 'status'> {
   students: PromotionStudent[];
   status: PromotionStatus;
 }
-export interface PromotionStudent extends BaseEntity {
+export interface PromotionStudent {
   studentId: string;
   studentName: string;
+  admissionNo?: string;
   resultStatus: string;
   action: PromotionAction;
   previousClassId?: string;
   override?: boolean;
+  remarks?: string;
 }
 export interface PendingUser extends BaseEntity {
   email: string;
@@ -593,7 +690,6 @@ export interface SettingsGradeBoundary {
 export interface GradeSettings {
   madrassaId: string;
   grades: SettingsGradeBoundary[];
-  failurePercentage: number;
   updatedBy: string;
   updatedAt: Timestamp;
 }
@@ -697,8 +793,26 @@ export interface PlatformQuestionPaper extends BaseEntity {
   title: string;
   boardId: string;
   classLevel: string;
+  globalClassId?: string;
   subject: string;
   year: string;
   fileUrl: string;
 }
 
+export interface LeaveRequest extends Omit<BaseEntity, 'status'> {
+  madrassaId: string;
+  type: LeaveRequestType; // STUDENT or STAFF
+  requesterId: string; // studentId for student, userId for staff
+  requesterName: string; // denormalized for display
+  classId?: string; // for student leaves — used to route to class teacher
+  parentUserId?: string; // for student leaves — for notifications
+  leaveType: LeaveType;
+  fromDate: Timestamp;
+  toDate: Timestamp;
+  reason: string;
+  status: LeaveStatus;
+  reviewerUserId?: string;
+  reviewerName?: string;
+  reviewerNote?: string;
+  reviewedAt?: Timestamp;
+}

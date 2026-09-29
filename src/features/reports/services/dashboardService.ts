@@ -55,6 +55,15 @@ export const dashboardService = {
     // Save to counter doc
     const ref = doc(db, "counters", `${madrassaId}_dashboard_stats`);
     await setDoc(ref, stats, { merge: true });
+
+    // Also mirror platform-level stats to the madrassa document for Super Admin access
+    const madrassaRef = doc(db, "madrassas", madrassaId);
+    await updateDoc(madrassaRef, {
+      studentCount: totalStudents,
+      staffCount: totalTeachers,
+      parentCount: totalParents,
+    }).catch(() => {}); // Non-blocking — don't fail if madrassa doc is missing
+
     return stats;
   },
 
@@ -69,9 +78,21 @@ export const dashboardService = {
         [field]: increment(change),
         updatedAt: new Date().toISOString()
       });
+
+      // Mirror key stats to madrassa doc for Super Admin platform view (1-read analytics)
+      const madrassaFieldMap: Record<string, string> = {
+        totalStudents: 'studentCount',
+        totalParents: 'parentCount',
+        totalTeachers: 'staffCount',
+      };
+      if (madrassaFieldMap[field]) {
+        const madrassaRef = doc(db, "madrassas", madrassaId);
+        updateDoc(madrassaRef, {
+          [madrassaFieldMap[field]]: increment(change),
+        }).catch(() => {}); // Non-blocking
+      }
     } catch (err: any) {
       if (err.code === 'not-found') {
-        // If doc doesn't exist yet, run the fallback which will initialize everything properly
         await this.runAggregationFallback(madrassaId);
       }
     }

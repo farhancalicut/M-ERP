@@ -72,18 +72,22 @@ export function AttendanceSettingsForm() {
   const onSubmit = async (data: AttendanceSettingsFormData) => {
     if (!userData?.madrassaId || !userData?.id) return;
     
+    let isNavigating = false;
     setLoading(true);
     try {
       await attendanceSettingsService.updateAttendanceSettings(userData.madrassaId, data as Partial<AttendanceSettings>, userData.id);
       toast.success("Attendance settings saved successfully");
       
       if (isSetupIncomplete) {
+        isNavigating = true;
         router.push("/settings/promotion");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update settings");
     } finally {
-      setLoading(false);
+      if (!isNavigating) {
+        setLoading(false);
+      }
     }
   };
 
@@ -182,7 +186,7 @@ export function AttendanceSettingsForm() {
               )}
             </Button>
             {!isSetupIncomplete && (
-              <Button type="button" variant="outline" onClick={() => router.push("/settings/promotion")}>
+              <Button type="button" variant="outline" onClick={() => { setLoading(true); router.push("/settings/promotion"); }}>
                 Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

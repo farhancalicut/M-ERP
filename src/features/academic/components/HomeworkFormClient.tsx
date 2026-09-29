@@ -15,19 +15,19 @@ import { HomeworkForm } from "@/features/academic/components/HomeworkForm";
 
 export function HomeworkFormClient({ initialData, homeworkId }: { initialData?: any; homeworkId?: string }) {
   const router = useRouter();
-  const { userData, user } = useAuthStore();
+  const { userData, user, currentAcademicYear } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [classes, setClasses] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-
   const [initialDataState, setInitialDataState] = useState<any>(initialData);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   useEffect(() => {
-    if ((userData as any)?.madrassaId && (userData as any)?.madrassa?.currentAcademicYear) {
+    if (userData?.madrassaId && currentAcademicYear?.id) {
       const fetchPromises: Promise<any>[] = [
-        classService.getClasses((userData as any).madrassaId, (userData as any).madrassa.currentAcademicYear),
-        subjectService.getSubjects((userData as any).madrassaId, (userData as any).madrassa.currentAcademicYear)
+        classService.getClasses(userData.madrassaId, "ALL", undefined, 500),
+        subjectService.getSubjects(userData.madrassaId, "ALL", undefined, 500)
       ];
 
       if (homeworkId && !initialData) {
@@ -35,18 +35,49 @@ export function HomeworkFormClient({ initialData, homeworkId }: { initialData?: 
       }
 
       Promise.all(fetchPromises).then((results) => {
-        setClasses(results[0]);
-        setSubjects(results[1]);
-        if (results[2]) {
-          setInitialDataState(results[2]);
+        let fetchedClasses = results[0]?.classes || [];
+        
+        // Filter classes for TEACHER role to only assigned classes
+        if (userData.role === "TEACHER") {
+          const assignedIds = userData.assignedClassIds || [];
+          fetchedClasses = fetchedClasses.filter((c: any) => c.id && assignedIds.includes(c.id));
         }
+
+        setClasses(fetchedClasses);
+        setSubjects(results[1]?.subjects || []);
+        
+        const loadedHomework = results[2] || initialData;
+        if (loadedHomework) {
+          setInitialDataState(loadedHomework);
+          // If editing as a teacher, check if they are assigned to this homework's class
+          if (userData.role === "TEACHER") {
+            const assignedIds = userData.assignedClassIds || [];
+            if (!assignedIds.includes(loadedHomework.classId)) {
+              setPermissionError("You do not have permission to edit homework for this class.");
+            }
+          }
+        }
+
+        setLoadingData(false);
+      }).catch((err) => {
+        toast.error("Failed to load data");
         setLoadingData(false);
       });
     }
-  }, [userData, homeworkId, initialData]);
+  }, [userData, homeworkId, initialData, currentAcademicYear]);
 
   const handleSubmit = async (data: HomeworkFormValues) => {
-    if (!(userData as any)?.madrassaId || !user) return;
+    if (!userData?.madrassaId || !user || !currentAcademicYear?.id) return;
+    
+    // UI-level permission check for TEACHER role
+    if (userData.role === "TEACHER") {
+      const assignedIds = userData.assignedClassIds || [];
+      if (!assignedIds.includes(data.classId)) {
+        toast.error("You are only permitted to create or update homework for your assigned classes.");
+        return;
+      }
+    }
+
     try {
       setIsLoading(true);
       if (homeworkId) {
@@ -54,8 +85,8 @@ export function HomeworkFormClient({ initialData, homeworkId }: { initialData?: 
         toast.success("Homework updated successfully");
       } else {
         await homeworkService.createHomeworkWithYear(
-          (userData as any).madrassaId,
-          (userData as any).madrassa.currentAcademicYear,
+          userData.madrassaId,
+          currentAcademicYear.id,
           data,
           user.uid
         );
@@ -70,7 +101,21 @@ export function HomeworkFormClient({ initialData, homeworkId }: { initialData?: 
     }
   };
 
-  if (loadingData) return <div>Loading...</div>;
+  if (loadingData) return <div className="py-8 text-center text-sm text-muted-foreground">Loading form...</div>;
+
+  if (permissionError) {
+    return (
+      <div className="p-6 text-center space-y-4">
+        <div className="text-red-500 font-semibold">{permissionError}</div>
+        <button
+          onClick={() => router.push("/homework")}
+          className="text-sm underline text-muted-foreground hover:text-foreground"
+        >
+          Back to Homework List
+        </button>
+      </div>
+    );
+  }
 
   return (
     <HomeworkForm 

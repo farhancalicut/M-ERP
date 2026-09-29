@@ -2,13 +2,15 @@ import { HomeworkFormClient } from "@/features/academic/components/HomeworkFormC
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { homeworkService } from "@/features/academic/services/homeworkService";
-import { notFound } from "next/navigation";
+
+export const dynamic = 'force-static';
+
+
+export function generateStaticParams() {
+  return [{ id: '_' }];
+}
 
 export default async function EditHomeworkPage({ params }: { params: { id: string } }) {
-  // We can fetch data server-side or pass id to client component and fetch there.
-  // Since we use client component for the form, and need the madrassa validation, let's fetch in client.
-  // Wait, I can fetch here if I want but I don't have user context easily. I will just pass the ID to the client wrapper.
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
@@ -26,7 +28,6 @@ export default async function EditHomeworkPage({ params }: { params: { id: strin
       </div>
 
       <div className="bg-card border rounded-lg p-6">
-        {/* We need to create an Edit wrapper or fetch in HomeworkFormClient. Let's update HomeworkFormClient to handle fetching if id is provided */}
         <HomeworkFormClient homeworkId={params.id} />
       </div>
     </div>

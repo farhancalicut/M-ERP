@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, orde
 import { db } from "@/lib/firebase/firestore";
 import { Homework } from "@/types/schema";
 import { HomeworkFormValues } from "../schemas/academicSchemas";
+import { notificationService } from "@/features/notifications/services/notificationService";
 
 const COLLECTION_NAME = "homeworks";
 
@@ -29,15 +30,31 @@ export const homeworkService = {
       description: data.description,
       attachments: data.attachments.map(a => ({ ...a, uploadedAt: Timestamp.now() })),
       teacherId: userId,
+      assignedDate: Timestamp.fromDate(data.assignedDate),
       dueDate: Timestamp.fromDate(data.dueDate),
+      allowSubmission: data.allowSubmission,
       status: 'PUBLISHED', // Start as published for simplicity, or DRAFT
       createdAt: Timestamp.now(),
       createdBy: userId,
       updatedAt: Timestamp.now(),
       updatedBy: userId,
-    };
+    } as any;
 
     await setDoc(docRef, homework);
+
+    // Notify parents of this class (best-effort)
+    notificationService.createNotificationSafe({
+      madrassaId,
+      type: "HOMEWORK",
+      title: "New Homework Assigned",
+      message: `${data.title} has been assigned. Due: ${data.dueDate.toLocaleDateString()}.`,
+      receiverType: "CLASS",
+      receiverIds: [data.classId],
+      priority: "MEDIUM",
+      status: "ACTIVE",
+      readBy: [],
+    } as any);
+
     return id;
   },
 
@@ -86,29 +103,26 @@ export const homeworkService = {
       where("academicYearId", "==", academicYearId)
     );
 
+    const querySnapshot = await getDocs(q);
+    let homeworks = querySnapshot.docs.map(doc => doc.data() as Homework);
+
     if (filters?.classId) {
-      q = query(q, where("classId", "==", filters.classId));
+      homeworks = homeworks.filter(h => h.classId === filters.classId);
     }
     if (filters?.subjectId) {
-      q = query(q, where("subjectId", "==", filters.subjectId));
+      homeworks = homeworks.filter(h => h.subjectId === filters.subjectId);
     }
     if (filters?.status) {
-      q = query(q, where("status", "==", filters.status));
+      homeworks = homeworks.filter(h => h.status === filters.status);
     } else {
-      // By default, exclude archived if not explicitly requested
-      q = query(q, where("status", "!=", "ARCHIVED"));
+      homeworks = homeworks.filter(h => h.status !== "ARCHIVED");
     }
 
-    q = query(q, orderBy("status"), orderBy("createdAt", "desc"));
-    if (lastDoc) {
-      q = query(q, startAfter(lastDoc));
-    }
-    q = query(q, limit(pageSize));
+    homeworks.sort((a, b) => {
+      if (a.status !== b.status) return a.status.localeCompare(b.status);
+      return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+    });
 
-    const querySnapshot = await getDocs(q);
-    const homeworks = querySnapshot.docs.map(doc => doc.data() as Homework);
-    const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-
-    return { homeworks, lastDoc: newLastDoc };
+    return { homeworks, lastDoc: null };
   }
 };

@@ -10,8 +10,8 @@ export type ClassFormData = z.infer<typeof classSchema>;
 
 export const subjectSchema = z.object({
   name: z.string().min(1, "Subject name is required"),
-  code: z.string().min(1, "Subject code is required"),
-  displayOrder: z.coerce.number().min(0),
+  code: z.string().optional(),
+  displayOrder: z.coerce.number().optional(),
   classIds: z.array(z.string()).default([]),
   defaultTotalMarks: z.coerce.number().min(1, "Total marks must be at least 1").default(100),
   defaultPassMarks: z.coerce.number().min(0).default(40)

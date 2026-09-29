@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase/firestore";
-import { collection, doc, setDoc, getDoc, runTransaction, query, getDocs, updateDoc, Timestamp, orderBy, getCountFromServer, where, limit } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, getDoc, updateDoc, Timestamp, query, orderBy, where, runTransaction, writeBatch, getCountFromServer, limit } from "firebase/firestore";
 import { Madrassa, SubscriptionStatus, AuditLog } from "@/types/schema";
 import { hashPassword } from "@/features/auth/utils/crypto";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -133,6 +133,11 @@ export const madrassaService = {
   },
 
   async updateMadrassaStatus(id: string, status: import("@/types/schema").Status) {
+    if (status === "SUSPENDED") {
+      return this.suspendMadrassa(id);
+    } else if (status === "ACTIVE") {
+      return this.reactivateMadrassa(id);
+    }
     try {
       const docRef = doc(db, "madrassas", id);
       await updateDoc(docRef, {
@@ -141,6 +146,68 @@ export const madrassaService = {
       });
     } catch (error) {
       console.error("Error updating madrassa status:", error);
+      throw error;
+    }
+  },
+
+  async suspendMadrassa(id: string) {
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Update Madrassa Document
+      const madrassaRef = doc(db, "madrassas", id);
+      batch.update(madrassaRef, {
+        status: "SUSPENDED",
+        subscriptionStatus: "LOCKED",
+        updatedAt: Timestamp.now()
+      });
+
+      // 2. Cascade to all Users
+      const usersRef = collection(db, "users");
+      const usersQuery = query(usersRef, where("madrassaId", "==", id));
+      const usersSnapshot = await getDocs(usersQuery);
+
+      usersSnapshot.docs.forEach(userDoc => {
+        batch.update(userDoc.ref, {
+          subscriptionStatus: "LOCKED",
+          updatedAt: Timestamp.now()
+        });
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Error suspending madrassa:", error);
+      throw error;
+    }
+  },
+
+  async reactivateMadrassa(id: string) {
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Update Madrassa Document
+      const madrassaRef = doc(db, "madrassas", id);
+      batch.update(madrassaRef, {
+        status: "ACTIVE",
+        subscriptionStatus: "ACTIVE",
+        updatedAt: Timestamp.now()
+      });
+
+      // 2. Cascade to all Users
+      const usersRef = collection(db, "users");
+      const usersQuery = query(usersRef, where("madrassaId", "==", id));
+      const usersSnapshot = await getDocs(usersQuery);
+
+      usersSnapshot.docs.forEach(userDoc => {
+        batch.update(userDoc.ref, {
+          subscriptionStatus: "ACTIVE",
+          updatedAt: Timestamp.now()
+        });
+      });
+
+      await batch.commit();
+    } catch (error) {
+      console.error("Error reactivating madrassa:", error);
       throw error;
     }
   },

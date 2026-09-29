@@ -179,7 +179,7 @@ export function AssignmentForm({ initialData, onSubmit, isLoading, classes, subj
 
         <div className="space-y-4 border rounded-md p-4">
           <div className="flex items-center justify-between">
-            <FormLabel>Attachments (Optional, Max 5)</FormLabel>
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Attachments (Optional, Max 5)</label>
             <FileUpload onUpload={handleUpload} maxSizeMB={5} label="Upload Attachment" />
           </div>
           {form.formState.errors.attachments && (

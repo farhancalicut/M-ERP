@@ -26,7 +26,6 @@ const gradeSchema = z.object({
 });
 
 const gradeSettingsSchema = z.object({
-  failurePercentage: z.coerce.number().min(0).max(100),
   grades: z.array(gradeSchema)
 });
 
@@ -42,7 +41,6 @@ export function GradeSettingsForm() {
   const form = useForm<GradeSettingsFormData>({
     resolver: zodResolver(gradeSettingsSchema) as any,
     defaultValues: {
-      failurePercentage: 35,
       grades: []
     }
   });
@@ -59,13 +57,11 @@ export function GradeSettingsForm() {
           const settings = await gradeSettingsService.getGradeSettings(userData.madrassaId);
           if (settings) {
             form.reset({
-              failurePercentage: settings.failurePercentage || 33,
               grades: settings.grades || []
             });
           } else {
             // Default grades
             form.reset({
-              failurePercentage: 35,
               grades: [
                 { id: uuidv4(), grade: "A+", minPercentage: 91, maxPercentage: 100, gradePoint: 10, remarks: "Excellent" },
                 { id: uuidv4(), grade: "A", minPercentage: 81, maxPercentage: 90, gradePoint: 9, remarks: "Very Good" },
@@ -91,20 +87,28 @@ export function GradeSettingsForm() {
   const onSubmit = async (data: GradeSettingsFormData) => {
     if (!userData?.madrassaId || !userData?.id) return;
     
+    let isNavigating = false;
     setLoading(true);
     try {
       // Validation happens in service, but we can do a quick check here too
-      gradeSettingsService.validateGrades(data.grades, data.failurePercentage);
-      await gradeSettingsService.updateGradeSettings(userData.madrassaId, data, userData.id);
+      gradeSettingsService.validateGrades(data.grades);
+      
+      await gradeSettingsService.updateGradeSettings(userData.madrassaId, {
+        grades: data.grades
+      }, userData.id);
+      
       toast.success("Grade settings saved successfully");
       
       if (isSetupIncomplete) {
+        isNavigating = true;
         router.push("/settings/attendance");
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update settings");
     } finally {
-      setLoading(false);
+      if (!isNavigating) {
+        setLoading(false);
+      }
     }
   };
 
@@ -121,11 +125,6 @@ export function GradeSettingsForm() {
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4 max-w-sm">
-            <div className="space-y-2">
-              <Label>Failure Percentage Threshold</Label>
-              <Input type="number" {...form.register("failurePercentage")} />
-              <p className="text-xs text-muted-foreground">Students scoring below this will fail.</p>
-            </div>
           </div>
 
           <div className="space-y-4">
@@ -175,7 +174,7 @@ export function GradeSettingsForm() {
               )}
             </Button>
             {!isSetupIncomplete && (
-              <Button type="button" variant="outline" onClick={() => router.push("/settings/attendance")}>
+              <Button type="button" variant="outline" onClick={() => { setLoading(true); router.push("/settings/attendance"); }}>
                 Next <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

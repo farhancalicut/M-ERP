@@ -14,11 +14,12 @@ import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const loginSchema = z.object({
-  email: z.string().email("Valid email is required"),
+  email: z.string().min(1, "Email or User ID is required"),
   password: z.string().min(1, "Password is required"),
 });
 
 const activationSchema = z.object({
+  personalEmail: z.string().email("Valid personal email is required"),
   newPassword: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string()
 }).refine((data) => data.newPassword === data.confirmPassword, {
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const activationForm = useForm<z.infer<typeof activationSchema>>({
     resolver: zodResolver(activationSchema),
     defaultValues: {
+      personalEmail: "",
       newPassword: "",
       confirmPassword: "",
     },
@@ -73,6 +75,7 @@ export default function LoginPage() {
     try {
       await authService.firstLogin({
         email: activationData.email,
+        personalEmail: values.personalEmail,
         temporaryPassword: activationData.tempPassword,
         newPassword: values.newPassword
       });
@@ -103,9 +106,9 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address</FormLabel>
+                    <FormLabel>Email or User ID</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="you@example.com" {...field} />
+                      <Input type="text" placeholder="you@example.com or ALM2026..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -149,12 +152,25 @@ export default function LoginPage() {
           <DialogHeader>
             <DialogTitle>Activate Your Account</DialogTitle>
             <DialogDescription>
-              You have logged in with a temporary password. Please set a new permanent password to activate your account.
+              You have logged in with a temporary password. Please set a personal email address and a new permanent password to activate your account.
             </DialogDescription>
           </DialogHeader>
           
           <Form {...activationForm}>
             <form onSubmit={activationForm.handleSubmit(onActivationSubmit)} className="space-y-4">
+              <FormField
+                control={activationForm.control}
+                name="personalEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Personal Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="you@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={activationForm.control}
                 name="newPassword"

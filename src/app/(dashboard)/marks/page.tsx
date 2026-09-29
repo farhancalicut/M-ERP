@@ -21,6 +21,7 @@ export default function MarksDashboardPage() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const { userData, currentAcademicYear } = useAuthStore();
   const [selectedYearId, setSelectedYearId] = useState<string>(currentAcademicYear?.id || "");
+  const isTeacher = userData?.role === "TEACHER";
 
   useEffect(() => {
     const fetchYears = async () => {
@@ -76,23 +77,28 @@ export default function MarksDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Marks Entry</h1>
-          <p className="text-muted-foreground">Select an exam to enter marks for</p>
+          <p className="text-muted-foreground">
+            {isTeacher ? "Select an exam to enter marks for your class" : "Select an exam to manage marks"}
+          </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        <span className="text-sm font-medium">Academic Year:</span>
-        <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-          <SelectTrigger className="w-[250px]">
-            <SelectValue placeholder="Select Academic Year" />
-          </SelectTrigger>
-          <SelectContent>
-             {academicYears.map(yr => (
-               <SelectItem key={yr.id!} value={yr.id!}>{yr.name} ({yr.status})</SelectItem>
-             ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Academic year selector — hidden for teachers (they always use current year) */}
+      {!isTeacher && (
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">Academic Year:</span>
+          <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+            <SelectTrigger className="w-[250px]">
+              <SelectValue placeholder="Select Academic Year" />
+            </SelectTrigger>
+            <SelectContent>
+               {academicYears.map(yr => (
+                 <SelectItem key={yr.id!} value={yr.id!}>{yr.name} ({yr.status})</SelectItem>
+               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {loading ? (
         <div className="h-48 flex items-center justify-center">Loading exams...</div>

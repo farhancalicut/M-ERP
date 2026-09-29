@@ -36,6 +36,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (fetchedUser.role !== 'SUPER_ADMIN') {
                 currentYearSettings = await academicYearService.getCurrentAcademicYearSettings(fetchedUser.madrassaId);
                 madrassa = await madrassaService.getMadrassaById(fetchedUser.madrassaId);
+
+                // Layer 3 Security: Block suspended tenants at login
+                if (madrassa?.status === 'SUSPENDED' || fetchedUser.subscriptionStatus === 'LOCKED') {
+                  await signOut(auth);
+                  clearUser();
+                  setLoading(false);
+                  return;
+                }
               }
               setUser(firebaseUser, fetchedUser, currentYearSettings ? { id: currentYearSettings.id, name: currentYearSettings.name } : null, madrassa);
             }

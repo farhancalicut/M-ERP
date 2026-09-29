@@ -130,8 +130,8 @@ export function StudyMaterialForm({ initialData, onSubmit, isLoading, classes, s
 
         <div className="space-y-4 border rounded-md p-4">
           <div className="flex items-center justify-between">
-            <FormLabel>Files (Required, Max 10)</FormLabel>
-            <FileUpload onUpload={handleUpload} maxSizeMB={5} label="Upload File" />
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Files (Required, Max 10)</label>
+            <FileUpload onUpload={handleUpload} maxSizeMB={10} label="Upload File" />
           </div>
           {form.formState.errors.files && (
             <p className="text-sm text-destructive">{form.formState.errors.files.message as string}</p>
@@ -156,7 +156,7 @@ export function StudyMaterialForm({ initialData, onSubmit, isLoading, classes, s
         <div className="flex justify-end gap-2">
           <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {initialData ? "Update Material" : "Publish Material"}
+            <span>{initialData ? "Update Material" : "Publish Material"}</span>
           </Button>
         </div>
       </form>

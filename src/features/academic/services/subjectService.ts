@@ -75,6 +75,7 @@ export const subjectService = {
     const docRef = doc(collection(db, COLLECTION));
     const newSubject: Subject = {
       ...data,
+      displayOrder: data.displayOrder ?? Date.now(),
       id: docRef.id,
       createdAt: Timestamp.now(),
       createdBy,
@@ -82,16 +83,18 @@ export const subjectService = {
       updatedBy: createdBy
     };
     
-    // Check for unique code in the madrassa
-    const qCode = query(
-      collection(db, COLLECTION),
-      where("madrassaId", "==", data.madrassaId),
-      where("code", "==", data.code),
-      limit(1)
-    );
-    const existingCode = await getDocs(qCode);
-    if (!existingCode.empty) {
-      throw new Error(`A subject with code ${data.code} already exists.`);
+    // Check for unique code in the madrassa if provided
+    if (data.code && data.code.trim() !== "") {
+      const qCode = query(
+        collection(db, COLLECTION),
+        where("madrassaId", "==", data.madrassaId),
+        where("code", "==", data.code),
+        limit(1)
+      );
+      const existingCode = await getDocs(qCode);
+      if (!existingCode.empty) {
+        throw new Error(`A subject with code ${data.code} already exists.`);
+      }
     }
 
     // Check for unique name
@@ -123,7 +126,7 @@ export const subjectService = {
   updateSubject: async (id: string, data: Partial<Subject>, updatedBy: string): Promise<void> => {
     const docRef = doc(db, COLLECTION, id);
     
-    if (data.code && data.madrassaId) {
+    if (data.code && data.madrassaId && data.code.trim() !== "") {
        const q = query(
         collection(db, COLLECTION),
         where("madrassaId", "==", data.madrassaId),

@@ -36,7 +36,7 @@ export const pendingUserService = {
       updatedAt: serverTimestamp() as unknown as Timestamp
     };
 
-    const docRef = doc(db, "pendingUsers", userId);
+    const docRef = doc(db, "pendingUsers", userId.toLowerCase());
     await setDoc(docRef, pendingUser);
   }
 };

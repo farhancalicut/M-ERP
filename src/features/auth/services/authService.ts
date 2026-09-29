@@ -18,9 +18,25 @@ export const authService = {
     if (!email || !password) throw new AppError("Email and password are required");
     
     try {
-      return await signInWithEmailAndPassword(auth, email, password);
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Self-heal missing userId for existing activated accounts
+      try {
+        const userDocRef = doc(db, "users", userCred.user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          if (!data.userId && (data.role === 'ALUMNI' || data.role === 'TEACHER' || data.role === 'PARENT')) {
+            await updateDoc(userDocRef, { userId: data.pendingUserId || email.toLowerCase() });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to self-heal userId:", e);
+      }
+      
+      return userCred;
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials') {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-login-credentials' || error.code === 'auth/invalid-email') {
         // Check if they are a pending user
         const pendingRef = doc(db, "pendingUsers", email.toLowerCase());
         const pendingSnap = await getDoc(pendingRef);
@@ -60,8 +76,10 @@ export const authService = {
     return await signOut(auth);
   },
 
-  async firstLogin({ email, temporaryPassword, newPassword }: { email?: string; temporaryPassword?: string; newPassword?: string; }) {
-    if (!email || !temporaryPassword || !newPassword) throw new AppError("Email and passwords are required");
+  async firstLogin({ email, personalEmail, temporaryPassword, newPassword }: { email: string; personalEmail?: string; temporaryPassword?: string; newPassword?: string }) {
+    if (!email || !temporaryPassword || !newPassword) {
+      throw new AppError("All fields are required");
+    }
     
     // 1. Verify pending user
     const pendingRef = doc(db, "pendingUsers", email.toLowerCase());
@@ -92,7 +110,8 @@ export const authService = {
     }
 
     // 2. Create Firebase Auth account
-    const userCredential = await createUserWithEmailAndPassword(auth, email, newPassword);
+    const firebaseEmail = personalEmail || pendingData.email || email;
+    const userCredential = await createUserWithEmailAndPassword(auth, firebaseEmail, newPassword);
     const firebaseUser = userCredential.user;
 
     try {
@@ -102,7 +121,7 @@ export const authService = {
         uid: firebaseUser.uid,
         displayName: pendingData.name || "Unknown",
         madrassaId: pendingData.madrassaId,
-        email: email,
+        email: firebaseEmail,
         role: pendingData.role,
         subscriptionStatus: 'ACTIVE', 
         permissions: getDefaultPermissions(pendingData.role),
@@ -115,7 +134,7 @@ export const authService = {
         contactNumber: pendingData.contactNumber || "",
         qualification: pendingData.qualification || "",
         specialization: pendingData.specialization || "",
-        joiningDate: pendingData.joiningDate || null,
+        joiningDate: pendingData.joiningDate || undefined,
         address: pendingData.address || "",
         bloodGroup: pendingData.bloodGroup || "",
         identityMarks: pendingData.identityMarks || "",
@@ -131,6 +150,7 @@ export const authService = {
       try {
         await setDoc(doc(db, "users", firebaseUser.uid), {
           ...newUser,
+          userId: pendingData.userId || pendingData.email || email.toLowerCase(),
           pendingUserId: email.toLowerCase(),
           domainId: pendingData.id || ""
         });
@@ -141,6 +161,10 @@ export const authService = {
             try {
               await updateDoc(doc(db, "parents", pendingData.id), { userId: firebaseUser.uid });
             } catch (e) { console.error("Failed to link parent domain doc", e); }
+          } else if (pendingData.role === "ALUMNI") {
+            try {
+              await updateDoc(doc(db, "alumni", pendingData.id), { userId: firebaseUser.uid, email: firebaseEmail });
+            } catch (e) { console.error("Failed to link alumni domain doc", e); }
           }
         }
       } catch (err) {

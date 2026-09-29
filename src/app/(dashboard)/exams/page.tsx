@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/table/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { Exam } from "@/types/schema";
 import { examService } from "@/features/exams/services/examService";
 import { useAuthStore } from "@/stores/authStore";
 import { Badge } from "@/components/ui/badge";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +25,14 @@ export default function ExamsDashboardPage() {
   const { userData, currentAcademicYear } = useAuthStore();
   const [selectedYearId, setSelectedYearId] = useState<string>(currentAcademicYear?.id || "");
   const router = useRouter();
+  const isManagementOrPrincipal = userData?.role === "MANAGEMENT" || userData?.role === "PRINCIPAL";
+
+  // Teachers should use /marks for marks entry, not /exams
+  useEffect(() => {
+    if (userData?.role === "TEACHER") {
+      router.replace("/marks");
+    }
+  }, [userData?.role, router]);
 
   useEffect(() => {
     const fetchYears = async () => {
@@ -71,6 +80,19 @@ export default function ExamsDashboardPage() {
     }
   };
 
+  const handleStatusChange = async (exam: Exam, newStatus: Exam["status"]) => {
+    if (!userData?.uid) return;
+    if (!confirm(`Are you sure you want to mark this exam as ${newStatus}?`)) return;
+
+    try {
+      await examService.updateExam(exam.id as string, { status: newStatus }, userData.uid);
+      toast.success(`Exam status updated to ${newStatus}`);
+      loadData();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to update status");
+    }
+  };
+
   const columns: ColumnDef<Exam>[] = [
     {
       accessorKey: "name",
@@ -99,6 +121,7 @@ export default function ExamsDashboardPage() {
         let color = "bg-gray-100 text-gray-800";
         if (status === "ACTIVE") color = "bg-green-100 text-green-800";
         if (status === "COMPLETED") color = "bg-blue-100 text-blue-800";
+        if (status === "ARCHIVED") color = "bg-red-100 text-red-800";
         return <Badge variant="secondary" className={color}>{status}</Badge>;
       }
     },
@@ -111,10 +134,44 @@ export default function ExamsDashboardPage() {
              <Button variant="outline" size="sm" onClick={() => router.push(`/exams/${exam.id}/edit`)}>
                {exam.status === 'ARCHIVED' ? 'View' : 'Edit'}
              </Button>
-             {exam.status !== "ARCHIVED" && (
-                <Button variant="outline" size="sm" onClick={() => handleArchive(exam)}>
-                  Archive
-                </Button>
+             
+             {isManagementOrPrincipal && (
+               <DropdownMenu>
+                 <DropdownMenuTrigger asChild>
+                   <Button variant="ghost" className="h-8 w-8 p-0">
+                     <span className="sr-only">Open menu</span>
+                     <MoreHorizontal className="h-4 w-4" />
+                   </Button>
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent align="end">
+                   <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                   <DropdownMenuSeparator />
+                   
+                   {exam.status === "DRAFT" && (
+                     <DropdownMenuItem onClick={() => handleStatusChange(exam, "ACTIVE")}>
+                       Mark as Active
+                     </DropdownMenuItem>
+                   )}
+                   
+                   {exam.status === "ACTIVE" && (
+                     <DropdownMenuItem onClick={() => handleStatusChange(exam, "COMPLETED")}>
+                       Mark as Completed
+                     </DropdownMenuItem>
+                   )}
+                   
+                   {exam.status === "COMPLETED" && (
+                     <DropdownMenuItem onClick={() => handleStatusChange(exam, "ACTIVE")}>
+                       Reopen (Active)
+                     </DropdownMenuItem>
+                   )}
+                   
+                   {exam.status !== "ARCHIVED" && (
+                     <DropdownMenuItem onClick={() => handleArchive(exam)} className="text-red-600 focus:bg-red-50 focus:text-red-700">
+                       Archive Exam
+                     </DropdownMenuItem>
+                   )}
+                 </DropdownMenuContent>
+               </DropdownMenu>
              )}
           </div>
         );
@@ -129,12 +186,14 @@ export default function ExamsDashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight">Exams</h1>
           <p className="text-muted-foreground">Manage examinations, subjects, and schedules</p>
         </div>
-        <Link href={`/exams/new?yearId=${selectedYearId}`}>
-          <Button disabled={!selectedYearId || userData?.role === "TEACHER"}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Exam
-          </Button>
-        </Link>
+        {isManagementOrPrincipal && (
+          <Link href={`/exams/new?yearId=${selectedYearId}`}>
+            <Button disabled={!selectedYearId}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Exam
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="flex items-center gap-4">

@@ -87,6 +87,10 @@ export function StudentProfile({ student, className, parent }: { student: Studen
                   <span className="font-medium">{parent.mobile || 'N/A'}</span>
                 </div>
                 <div className="space-y-1">
+                  <span className="text-muted-foreground block">Email</span>
+                  <span className="font-medium">{parent.email || 'N/A'}</span>
+                </div>
+                <div className="space-y-1">
                   <span className="text-muted-foreground block">Relation</span>
                   <span className="font-medium">{student.guardianRelation || 'N/A'}</span>
                 </div>

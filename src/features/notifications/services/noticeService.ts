@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/firestore";
 import { Notice } from "@/types/schema";
+import { notificationService } from "@/features/notifications/services/notificationService";
 
 const COLLECTION = "notices";
 
@@ -80,7 +81,7 @@ export const noticeService = {
     });
   },
 
-  publishNotice: async (id: string, publishedBy: string) => {
+  publishNotice: async (id: string, publishedBy: string, notice?: Notice) => {
     const docRef = doc(db, COLLECTION, id);
     await updateDoc(docRef, {
       status: "PUBLISHED",
@@ -88,6 +89,23 @@ export const noticeService = {
       publishedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+
+    // Fire a notification to each targeted role group (best-effort)
+    if (notice) {
+      const roles = notice.targetRoles ?? [];
+      for (const role of roles) {
+        notificationService.createNotificationSafe({
+          madrassaId: notice.madrassaId,
+          type: "NOTICE",
+          title: notice.title,
+          message: notice.description.slice(0, 160),
+          receiverType: role as any,
+          priority: notice.pinned ? "HIGH" : "MEDIUM",
+          status: "ACTIVE",
+          readBy: [],
+        } as any);
+      }
+    }
   },
 
   archiveNotice: async (id: string, updatedBy: string) => {

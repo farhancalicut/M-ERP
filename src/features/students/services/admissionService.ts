@@ -1,5 +1,6 @@
-import { doc, runTransaction, serverTimestamp, Timestamp, collection } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp, Timestamp, collection, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firestore";
+import { madrassaService } from "@/features/super-admin/services/madrassaService";
 import { Student, Parent } from "../types";
 import { counterService } from "@/services/counterService";
 import { hashPassword } from "@/features/auth/utils/crypto";
@@ -28,6 +29,7 @@ export interface AdmissionData {
   parentMobile: string;
   parentEmail: string;
   admissionFeeAmount?: number;
+  admissionFeeCategoryId?: string;
   admissionFeePaymentMethod?: "CASH" | "BANK" | "UPI" | "OTHER" | "PENDING";
 }
 
@@ -36,6 +38,22 @@ export const admissionService = {
     const { madrassaId, parentMobile } = data;
     const mobileKey = `${madrassaId}_${parentMobile}`;
     
+    // 1. Check Student Limit Enforcement
+    const madrassa = await madrassaService.getMadrassaById(madrassaId);
+    if (madrassa && madrassa.subscriptionPlan) {
+      const planRef = doc(db, "subscriptionPlans", madrassa.subscriptionPlan);
+      const planSnap = await getDoc(planRef);
+      if (planSnap.exists()) {
+        const plan = planSnap.data();
+        if (plan.studentLimit !== 'Unlimited') {
+          const currentCount = madrassa.studentCount || 0;
+          if (currentCount >= plan.studentLimit) {
+            throw new Error(`Student limit reached for your current subscription plan (${plan.studentLimit} students). Please contact Super Admin to upgrade your plan.`);
+          }
+        }
+      }
+    }
+
     // Check if parent exists outside transaction (since queries inside transactions are restricted/costly if they fail)
     const existingParent = await parentService.getParentByMobile(madrassaId, parentMobile);
 
@@ -208,7 +226,7 @@ export const admissionService = {
         const isPaid = data.admissionFeePaymentMethod !== "PENDING";
         initialFees.push({
           id: assignedFeeId,
-          feeCategoryId: "ADMISSION_FEE_GEN",
+          feeCategoryId: data.admissionFeeCategoryId || "ADMISSION_FEE_GEN",
           feeName: "Admission Fee",
           amount: data.admissionFeeAmount,
           paidAmount: isPaid ? data.admissionFeeAmount : 0,
@@ -234,10 +252,10 @@ export const admissionService = {
             paymentNo,
             receiptNo: paymentNo,
             madrassaId,
-            studentId: newStudentId,
+            studentId: studentRef.id,
             parentId: parentId!,
             academicYearId,
-            feeCategoryId: "ADMISSION_FEE_GEN",
+            feeCategoryId: data.admissionFeeCategoryId || "ADMISSION_FEE_GEN",
             assignedFeeId,
             amount: data.admissionFeeAmount,
             paymentMethod: data.admissionFeePaymentMethod,
@@ -251,7 +269,7 @@ export const admissionService = {
 
       await studentFeeService.initializeStudentFee(
         madrassaId,
-        newStudentId,
+        studentRef.id,
         parentId!,
         academicYearId,
         0, // default monthly fee

@@ -118,6 +118,8 @@ export default function NewMadrassaPage() {
   };
 
   const onSubmit = async (data: FormValues) => {
+    // Guard: only submit if we are on the final review step
+    if (step !== 4) return;
     if (!userData?.uid) return;
     
     setIsSubmitting(true);
@@ -133,6 +135,11 @@ export default function NewMadrassaPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFinalSubmit = () => {
+    if (step !== 4) return;
+    form.handleSubmit(onSubmit)();
   };
 
   const copyCredentials = () => {
@@ -250,7 +257,7 @@ Please activate your account by logging in with your Email and Temporary Passwor
 
       <div className="bg-card border rounded-lg shadow-sm p-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             
             {/* STEP 1: MADRASSA DETAILS */}
             <div className={step === 1 ? 'block' : 'hidden'}>
@@ -583,7 +590,7 @@ Please activate your account by logging in with your Email and Temporary Passwor
                   Next Step
                 </Button>
               ) : (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="button" onClick={handleFinalSubmit} disabled={isSubmitting}>
                   {isSubmitting ? "Creating..." : "Confirm & Create Madrassa"}
                   {!isSubmitting && <Save className="w-4 h-4 ml-2" />}
                 </Button>

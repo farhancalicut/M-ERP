@@ -98,7 +98,8 @@ export const alumniService = {
     student: { id: string; parentId?: string; admissionNo?: string; name: string; mobile?: string; email?: string; classId: string },
     completionYear: number,
     createdByUid: string,
-    alumniCounter: number
+    alumniCounter: number,
+    pendingUserExists: boolean
   ): Promise<{ alumni: Omit<Alumni, "id">, credentials: { userId: string, password?: string } }> => {
 
     // 1. Generate ID
@@ -108,18 +109,20 @@ export const alumniService = {
     const loginId = student.admissionNo ? `ALM_${student.admissionNo}` : alumniId;
 
     // Let's use the loginId as the document ID for pendingUsers!
-    const pendingUserRef = doc(db, "pendingUsers", loginId);
-    const pendingUserSnap = await transaction.get(pendingUserRef);
+    const pendingUserRef = doc(db, "pendingUsers", loginId.toLowerCase());
 
     // If pending user exists, we don't recreate credentials. 
     let password = undefined;
 
-    if (!pendingUserSnap.exists()) {
+    const alumniDocRef = doc(collection(db, COLLECTION));
+
+    if (!pendingUserExists) {
       // Create credentials
       password = generateTemporaryPassword();
-      const { salt, hash } = await hashPassword(password);
+      const { salt, hash, iterations } = await hashPassword(password);
 
-      const pendingUser: Omit<PendingUser, "id"> = {
+      const pendingUser: PendingUser = {
+        id: alumniDocRef.id,
         userId: loginId,
         role: "ALUMNI",
         name: student.name,
@@ -128,7 +131,7 @@ export const alumniService = {
         email: `${loginId.toLowerCase()}@${madrassaId.toLowerCase()}.m-erp.local`,
         passwordHash: hash,
         salt,
-        iterations: 10000,
+        iterations,
         createdBy: createdByUid,
         madrassaId,
         status: "PENDING",
@@ -139,7 +142,6 @@ export const alumniService = {
       transaction.set(pendingUserRef, pendingUser);
     }
 
-    const alumniDocRef = doc(collection(db, COLLECTION));
     const alumniData: Omit<Alumni, "id"> = {
       alumniId,
       studentId: student.id as string,

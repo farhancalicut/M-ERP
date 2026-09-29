@@ -33,7 +33,7 @@ export function PromotionTable({ fields, control, setValue, isHighestClass }: Pr
         </TableHeader>
         <TableBody>
           {fields.map((field, index) => (
-            <TableRow key={field.id}>
+            <TableRow key={field.studentId}>
               <TableCell className="font-medium">{field.studentName}</TableCell>
               <TableCell>
                 <Badge variant={field.resultStatus === "PASS" ? "default" : "destructive"}>

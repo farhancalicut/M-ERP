@@ -49,6 +49,8 @@ export default function ParentHomeworkPage() {
           console.error(err);
           setLoading(false);
         });
+      } else {
+        setLoading(false);
       }
     }
   }, [selectedStudentId, students, userData, currentAcademicYear]);
@@ -57,19 +59,19 @@ export default function ParentHomeworkPage() {
     {
       header: "Title",
       accessorKey: "title",
-      cell: (row: any) => <div className="font-medium">{row.title}</div>
+      cell: ({ row }: any) => <div className="font-medium">{row.original.title}</div>
     },
     {
       header: "Due Date",
       accessorKey: "dueDate",
-      cell: (row: any) => row.dueDate ? new Date(row.dueDate.seconds * 1000).toLocaleDateString() : "-"
+      cell: ({ row }: any) => row.original.dueDate ? new Date(row.original.dueDate.seconds * 1000).toLocaleDateString() : "-"
     },
     {
       header: "Action",
       id: "actions",
-      cell: (row: any) => (
+      cell: ({ row }: any) => (
         <Button variant="outline" size="sm" asChild>
-          <Link href={`/parent/homework/${row.id}?studentId=${selectedStudentId}`}>
+          <Link href={`/parent/homework/${row.original.id}?studentId=${selectedStudentId}`}>
             <Eye className="mr-2 h-4 w-4" /> View / Submit
           </Link>
         </Button>

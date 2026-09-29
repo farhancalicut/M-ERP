@@ -73,28 +73,26 @@ export const studyMaterialService = {
       where("academicYearId", "==", academicYearId)
     );
 
+    const querySnapshot = await getDocs(q);
+    let materials = querySnapshot.docs.map(doc => doc.data() as StudyMaterial);
+
     if (filters?.classId) {
-      q = query(q, where("classId", "==", filters.classId));
+      materials = materials.filter(m => m.classId === filters.classId);
     }
     if (filters?.subjectId) {
-      q = query(q, where("subjectId", "==", filters.subjectId));
+      materials = materials.filter(m => m.subjectId === filters.subjectId);
     }
     if (filters?.status) {
-      q = query(q, where("status", "==", filters.status));
+      materials = materials.filter(m => m.status === filters.status);
     } else {
-      q = query(q, where("status", "!=", "ARCHIVED"));
+      materials = materials.filter(m => m.status !== "ARCHIVED");
     }
 
-    q = query(q, orderBy("status"), orderBy("createdAt", "desc"));
-    if (lastDoc) {
-      q = query(q, startAfter(lastDoc));
-    }
-    q = query(q, limit(pageSize));
+    materials.sort((a, b) => {
+      if (a.status !== b.status) return a.status.localeCompare(b.status);
+      return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+    });
 
-    const querySnapshot = await getDocs(q);
-    const materials = querySnapshot.docs.map(doc => doc.data() as StudyMaterial);
-    const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-
-    return { materials, lastDoc: newLastDoc };
+    return { materials, lastDoc: null };
   }
 };

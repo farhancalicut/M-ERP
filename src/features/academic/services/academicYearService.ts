@@ -85,7 +85,25 @@ export const academicYearService = {
     };
     
     await runTransaction(db, async (transaction) => {
+      const settingsRef = doc(db, `madrassas/${data.madrassaId}/settings`, "currentAcademicYear");
+      const settingsDoc = await transaction.get(settingsRef);
+      
+      let finalStatus: AcademicYearStatus = "UPCOMING";
+      if (!settingsDoc.exists() || !settingsDoc.data().id) {
+        finalStatus = "ACTIVE";
+      }
+
+      newYear.status = finalStatus;
       transaction.set(docRef, newYear);
+
+      if (finalStatus === "ACTIVE") {
+        transaction.set(settingsRef, {
+          id: newYear.id,
+          name: newYear.name,
+          startDate: newYear.startDate,
+          endDate: newYear.endDate
+        });
+      }
     });
     
     return newYear;
@@ -102,6 +120,41 @@ export const academicYearService = {
         updatedAt: serverTimestamp(),
         updatedBy
       });
+    });
+  },
+
+  /**
+   * Finish the current Academic Year and activate the next one (if available).
+   */
+  finishAcademicYear: async (madrassaId: string, currentYearId: string, nextYearToActivate: AcademicYear | null, updatedBy: string): Promise<void> => {
+    await runTransaction(db, async (transaction) => {
+      const settingsRef = doc(db, `madrassas/${madrassaId}/settings`, "currentAcademicYear");
+      
+      const currentYearRef = doc(db, COLLECTION, currentYearId);
+      transaction.update(currentYearRef, {
+        status: "COMPLETED" as AcademicYearStatus,
+        updatedAt: serverTimestamp(),
+        updatedBy
+      });
+      
+      if (nextYearToActivate && nextYearToActivate.id) {
+        const newYearRef = doc(db, COLLECTION, nextYearToActivate.id);
+        transaction.update(newYearRef, {
+          status: "ACTIVE" as AcademicYearStatus,
+          updatedAt: serverTimestamp(),
+          updatedBy
+        });
+
+        transaction.set(settingsRef, {
+          id: nextYearToActivate.id,
+          name: nextYearToActivate.name,
+          startDate: nextYearToActivate.startDate,
+          endDate: nextYearToActivate.endDate
+        });
+      } else {
+        // If there's no next year, we clear the current academic year in settings or leave it empty
+        transaction.delete(settingsRef);
+      }
     });
   },
 

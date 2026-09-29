@@ -3,16 +3,17 @@ import { db } from "@/lib/firebase/firestore";
 import { PlatformQuestionPaper } from "@/types/schema";
 
 export const questionPaperService = {
-  async getQuestionPapers(boardId?: string) {
+  async getQuestionPapers(boardId?: string, globalClassId?: string) {
     try {
       const qpRef = collection(db, "questionPapers");
       
-      let q;
-      if (boardId) {
-        q = query(qpRef, where("boardId", "==", boardId), orderBy("createdAt", "desc"));
-      } else {
-        q = query(qpRef, orderBy("createdAt", "desc"));
-      }
+      let constraints: any[] = [];
+      if (boardId) constraints.push(where("boardId", "==", boardId));
+      if (globalClassId) constraints.push(where("globalClassId", "==", globalClassId));
+      
+      constraints.push(orderBy("createdAt", "desc"));
+      
+      const q = query(qpRef, ...constraints);
       
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PlatformQuestionPaper));

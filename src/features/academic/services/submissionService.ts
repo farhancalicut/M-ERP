@@ -16,6 +16,7 @@ export const submissionService = {
       academicYearId,
       homeworkId,
       studentId,
+      submissionText: data.submissionText || "",
       attachments: (data.attachments || []).map(a => ({ ...a, uploadedAt: Timestamp.now() })),
       submittedAt: Timestamp.now(),
       status: 'SUBMITTED',

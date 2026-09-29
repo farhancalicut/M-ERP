@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/table/DataTable";
@@ -38,6 +38,7 @@ export default function ClassesPage() {
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string>();
+  const [navigatingNext, setNavigatingNext] = useState(false);
 
   useEffect(() => {
     if (!selectedYearId && currentAcademicYear?.id) {
@@ -71,7 +72,7 @@ export default function ClassesPage() {
     };
     fetchYears();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.madrassaId, selectedYearId]);
+  }, [userData?.madrassaId]);
 
   const loadData = async () => {
     if (!userData?.madrassaId || !selectedYearId) {
@@ -266,8 +267,8 @@ export default function ClassesPage() {
 
       <div className="flex items-center gap-4">
         <span className="text-sm font-medium">Academic Year:</span>
-        <Select value={selectedYearId} onValueChange={setSelectedYearId}>
-          <SelectTrigger className="w-[250px]">
+        <Select value={selectedYearId || ""} onValueChange={setSelectedYearId}>
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Select Academic Year" />
           </SelectTrigger>
           <SelectContent>
@@ -317,6 +318,14 @@ export default function ClassesPage() {
           />
         </DialogContent>
       </Dialog>
+      {userData?.madrassaId && useAuthStore.getState().madrassa?.isSetupComplete === false && (
+        <div className="flex justify-end mt-8 pt-4 border-t">
+          <Button type="button" onClick={() => { setNavigatingNext(true); router.push("/settings/subjects"); }} disabled={navigatingNext}>
+            {navigatingNext ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {navigatingNext ? "Loading..." : "Save & Continue"} {!navigatingNext && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

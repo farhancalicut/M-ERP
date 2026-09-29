@@ -10,15 +10,15 @@ import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 
 export default function StudyMaterialListPage() {
-  const { userData } = useAuthStore();
+  const { userData, currentAcademicYear } = useAuthStore();
   const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if ((userData as any)?.madrassaId && (userData as any)?.madrassa?.currentAcademicYear) {
+    if (userData?.madrassaId && currentAcademicYear?.id) {
       studyMaterialService.getMaterials(
-        (userData as any).madrassaId, 
-        (userData as any).madrassa.currentAcademicYear
+        userData.madrassaId, 
+        currentAcademicYear.id
       ).then(res => {
         setMaterials(res.materials);
         setLoading(false);
@@ -32,28 +32,32 @@ export default function StudyMaterialListPage() {
     {
       header: "Title",
       accessorKey: "title",
-      cell: (row: any) => <div className="font-medium">{row.title}</div>
+      cell: ({ row }: any) => <div className="font-medium">{row.original.title}</div>
     },
     {
       header: "Status",
       accessorKey: "status",
-      cell: (row: any) => (
-        <Badge variant={row.status === "ACTIVE" ? "success" : "default" as any}>
-          {row.status}
+      cell: ({ row }: any) => (
+        <Badge variant={row.original.status === "ACTIVE" ? "success" : "default" as any}>
+          {row.original.status}
         </Badge>
       )
     },
     {
       header: "Files",
       accessorKey: "files",
-      cell: (row: any) => row.files?.length || 0
+      cell: ({ row }: any) => row.original.attachments?.length || 0
     },
     {
       header: "Created At",
       accessorKey: "createdAt",
-      cell: (row: any) => row.createdAt ? new Date(row.createdAt.seconds * 1000).toLocaleDateString() : "-"
+      cell: ({ row }: any) => row.original.createdAt ? new Date(row.original.createdAt.seconds * 1000).toLocaleDateString() : "-"
     }
   ];
+
+  if (loading) {
+    return <div className="py-12 text-center">Loading study materials...</div>;
+  }
 
   return (
     <div className="space-y-6">

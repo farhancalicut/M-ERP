@@ -24,13 +24,7 @@ export default function ResultsDashboardPage() {
   const [selectedYearId, setSelectedYearId] = useState<string>(currentAcademicYear?.id || "");
   const router = useRouter();
 
-  useEffect(() => {
-    if (userData?.role === "TEACHER") {
-      toast.error("Teachers do not have access to result generation.");
-      router.push("/teacher");
-      return;
-    }
-  }, [userData, router]);
+  // Allow all authorized roles including TEACHER
 
   useEffect(() => {
     const fetchYears = async () => {
@@ -61,13 +55,9 @@ export default function ResultsDashboardPage() {
   };
 
   useEffect(() => {
-    if (userData?.role !== "TEACHER") {
-       loadData();
-    }
+    loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData?.madrassaId, selectedYearId, userData?.role]);
-
-  if (userData?.role === "TEACHER") return null;
+  }, [userData?.madrassaId, selectedYearId]);
 
   return (
     <div className="space-y-6 p-6">

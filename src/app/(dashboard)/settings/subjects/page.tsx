@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/table/DataTable";
@@ -35,6 +35,13 @@ export default function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string>();
+  const [navigatingNext, setNavigatingNext] = useState(false);
+
+  useEffect(() => {
+    if (!selectedYearId && currentAcademicYear?.id) {
+      setSelectedYearId(currentAcademicYear.id);
+    }
+  }, [currentAcademicYear, selectedYearId]);
 
   useEffect(() => {
     const fetchYearsAndClasses = async () => {
@@ -46,6 +53,11 @@ export default function SubjectsPage() {
         ]);
         setAcademicYears(res.years);
         setClasses(classesRes.classes);
+        
+        if (!selectedYearId && res.years.length > 0) {
+          const activeYear = res.years.find(y => y.status === "ACTIVE") || res.years[0];
+          setSelectedYearId(activeYear!.id as string);
+        }
       } catch {}
     };
     fetchYearsAndClasses();
@@ -100,8 +112,6 @@ export default function SubjectsPage() {
       if (editingSubject) {
         await subjectService.updateSubject(editingSubject.id as string, {
           name: data.name,
-          code: data.code,
-          displayOrder: data.displayOrder,
           classIds: data.classIds || [],
           defaultTotalMarks: data.defaultTotalMarks,
           defaultPassMarks: data.defaultPassMarks,
@@ -112,8 +122,8 @@ export default function SubjectsPage() {
         await subjectService.createSubject({
           madrassaId: userData.madrassaId,
           name: data.name,
-          code: data.code,
-          displayOrder: data.displayOrder,
+          code: data.code || "",
+          displayOrder: data.displayOrder || 0,
           classIds: data.classIds || [],
           defaultTotalMarks: data.defaultTotalMarks,
           defaultPassMarks: data.defaultPassMarks,
@@ -133,16 +143,8 @@ export default function SubjectsPage() {
 
   const columns: ColumnDef<Subject>[] = [
     {
-      accessorKey: "code",
-      header: "Code",
-    },
-    {
       accessorKey: "name",
       header: "Subject Name",
-    },
-    {
-      accessorKey: "displayOrder",
-      header: "Order",
     },
     {
       accessorKey: "status",
@@ -247,6 +249,14 @@ export default function SubjectsPage() {
           />
         </DialogContent>
       </Dialog>
+      {userData?.madrassaId && useAuthStore.getState().madrassa?.isSetupComplete === false && (
+        <div className="flex justify-end mt-8 pt-4 border-t">
+          <Button type="button" onClick={() => { setNavigatingNext(true); router.push("/settings/grades"); }} disabled={navigatingNext}>
+            {navigatingNext ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {navigatingNext ? "Loading..." : "Save & Continue"} {!navigatingNext && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

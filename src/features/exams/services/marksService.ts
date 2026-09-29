@@ -248,13 +248,57 @@ export const marksService = {
           };
         }
       }
-
+      
       transaction.update(docRef, {
         marks: newMarks,
         submitted: true,
         submittedAt: serverTimestamp(),
         status: "SUBMITTED",
         updatedBy: submittedByUserId,
+        updatedAt: serverTimestamp()
+      });
+    });
+  },
+
+  /**
+   * Submit and Lock marks in one step (used by principals)
+   */
+  submitAndLockMarks: async (examId: string, classId: string, updates: Record<string, Record<string, SubjectMark>>, processedByUserId: string): Promise<void> => {
+    const docId = marksService.getMarksDocumentId(examId, classId);
+    const docRef = doc(db, COLLECTION, docId as string);
+
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(docRef);
+      if (!snap.exists()) throw new Error("Marks document not found");
+      const data = snap.data() as Mark;
+      if (data.locked) throw new Error("Cannot modify locked marks");
+
+      // Apply updates
+      const newMarks = { ...data.marks };
+      for (const [studentId, subjectData] of Object.entries(updates)) {
+        if (!newMarks[studentId]) newMarks[studentId] = {};
+        for (const [subjectId, markData] of Object.entries(subjectData)) {
+          newMarks[studentId][subjectId] = {
+            ...markData,
+            absent: markData.absent || false,
+            marksObtained: markData.marksObtained === undefined ? null : markData.marksObtained,
+            ceMarksObtained: markData.ceMarksObtained === undefined ? null : markData.ceMarksObtained,
+            submittedBy: processedByUserId,
+            updatedBy: processedByUserId,
+            updatedAt: serverTimestamp() as unknown as Timestamp
+          };
+        }
+      }
+
+      transaction.update(docRef, {
+        marks: newMarks,
+        submitted: true,
+        submittedAt: serverTimestamp(),
+        locked: true,
+        lockedAt: serverTimestamp(),
+        lockedBy: processedByUserId,
+        status: "LOCKED",
+        updatedBy: processedByUserId,
         updatedAt: serverTimestamp()
       });
     });

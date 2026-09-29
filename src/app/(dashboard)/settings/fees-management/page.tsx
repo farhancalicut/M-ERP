@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { feeCategoryService } from "@/features/fees/services/feeCategoryService";
 import { FeeCategoryClient } from "@/features/fees/components/FeeCategoryClient";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ArrowRight, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
+import { useRouter } from "next/navigation";
 import { FeeCategory } from "@/types/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FeeCategoryFormClient } from "@/features/fees/components/FeeCategoryFormClient";
@@ -14,8 +15,10 @@ import { FeeCategoryFormValues } from "@/features/fees/schemas/feeSchemas";
 
 export default function FeeManagementPage() {
   const { userData } = useAuthStore();
+  const router = useRouter();
   const [categories, setCategories] = useState<FeeCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navigatingNext, setNavigatingNext] = useState(false);
   
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -98,6 +101,15 @@ export default function FeeManagementPage() {
           setCategories(prev => prev.filter(c => c.id !== id));
         }} 
       />
+      
+      {useAuthStore.getState().madrassa?.isSetupComplete === false && (
+        <div className="flex justify-end mt-8 pt-4 border-t">
+          <Button type="button" onClick={() => { setNavigatingNext(true); router.push("/settings/appearance"); }} disabled={navigatingNext}>
+            {navigatingNext ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {navigatingNext ? "Loading..." : "Save & Continue"} {!navigatingNext && <ArrowRight className="ml-2 h-4 w-4" />}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

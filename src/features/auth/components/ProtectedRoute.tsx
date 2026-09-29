@@ -17,6 +17,13 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
 
     if (isInitialized && user && userData && madrassa) {
+      // Layer 4 Security: Redirect suspended tenants
+      const isSuspended = madrassa.status === 'SUSPENDED' || userData.subscriptionStatus === 'LOCKED';
+      if (isSuspended) {
+        router.replace('/suspended');
+        return;
+      }
+
       // Self-heal parent accounts missing domainId
       if (userData.role === "PARENT" && !(userData as any).domainId) {
         const healParent = async () => {
@@ -27,6 +34,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
             const parentDocs = await getDocs(parentQuery);
             if (!parentDocs.empty) {
               const parentDoc = parentDocs.docs[0];
+              if (!parentDoc || !userData?.id) return;
               await updateDoc(doc(db, "parents", parentDoc.id), { userId: userData.id }).catch(() => {});
               await updateDoc(doc(db, "users", userData.id), { domainId: parentDoc.id }).catch(() => {});
               useAuthStore.getState().setUserData({ ...userData, domainId: parentDoc.id });

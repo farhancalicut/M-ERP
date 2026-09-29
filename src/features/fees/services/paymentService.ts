@@ -18,6 +18,7 @@ import { db } from "@/lib/firebase/firestore";
 import { FeePayment, StudentFee } from "@/types/schema";
 import { PaymentMethod } from "@/types/enums";
 import { studentFeeService } from "./studentFeeService";
+import { notificationService } from "@/features/notifications/services/notificationService";
 
 const COLLECTION = "feePayments";
 
@@ -57,32 +58,29 @@ export const paymentService = {
 
       const studentFee = studentFeeSnap.data() as StudentFee;
       const assignedFees = studentFee.assignedFees || [];
-      const targetFeeIndex = assignedFees.findIndex(f => f.id === assignedFeeId);
-      if (targetFeeIndex === -1) {
-        throw new Error("Assigned fee not found.");
-      }
-      const targetFee = assignedFees[targetFeeIndex];
       
-      // @ts-ignore
-      if (targetFee.status === 'PAID' || targetFee.status === 'WAIVED' || targetFee.status === 'CANCELLED') {
-        // @ts-ignore
-        throw new Error(`Cannot collect payment for fee in ${targetFee.status} status.`);
-      }
-      
-      // @ts-ignore
-      if (amount > targetFee.dueAmount) {
-        throw new Error("Payment amount cannot exceed due amount.");
-      }
+      let targetFee: any = null;
+      let targetFeeIndex = -1;
 
-      const allowPartial = false;
-      const receiptPrefix = "RCT";
-
-      // @ts-ignore
-      if (!allowPartial && amount < targetFee.dueAmount) {
-        throw new Error("Partial payments are not allowed. You must pay the full due amount.");
+      if (assignedFeeId !== "DONATION") {
+        targetFeeIndex = assignedFees.findIndex(f => f.id === assignedFeeId);
+        if (targetFeeIndex === -1) {
+          throw new Error("Assigned fee not found.");
+        }
+        targetFee = assignedFees[targetFeeIndex];
+        
+        if (targetFee.status === 'PAID' || targetFee.status === 'WAIVED' || targetFee.status === 'CANCELLED') {
+          throw new Error(`Cannot collect payment for fee in ${targetFee.status} status.`);
+        }
+        
+        if (amount > targetFee.dueAmount) {
+          throw new Error("Payment amount cannot exceed due amount.");
+        }
+        // Partial payments are allowed — status will be PARTIAL until fully paid
       }
 
       // Generate payment number
+      const receiptPrefix = "RCT";
       const counterSnap = await transaction.get(counterRef);
       let currentCounter = 0;
       if (counterSnap.exists()) {
@@ -98,7 +96,7 @@ export const paymentService = {
       createdPayment = {
         id: paymentRef.id,
         paymentNo,
-        receiptNo: isTeacher ? null : paymentNo,
+        receiptNo: paymentNo,
         madrassaId,
         studentId,
         parentId,
@@ -110,37 +108,50 @@ export const paymentService = {
         paymentMethod,
         remarks: remarks || "",
         collectedBy: collectedByUid,
-        status: isTeacher ? "PENDING" : "ACTIVE",
+        status: "ACTIVE",
+        transactionType: "FEE",
         createdAt: serverTimestamp() as unknown as Timestamp,
       };
 
       transaction.set(counterRef, { count: newCounter });
       transaction.set(paymentRef, createdPayment);
 
-      // Only update ledger if NOT a teacher (i.e. instantly verified)
-      if (!isTeacher) {
-        // @ts-ignore
+      // Instantly verify and update ledger for everyone
+      if (assignedFeeId !== "DONATION" && targetFee) {
         targetFee.paidAmount += amount;
-        // @ts-ignore
         targetFee.dueAmount -= amount;
-        // @ts-ignore
         targetFee.status = targetFee.dueAmount === 0 ? 'PAID' : 'PARTIAL';
-        // @ts-ignore
         assignedFees[targetFeeIndex] = targetFee;
-        const summary = studentFeeService.calculateSummary(assignedFees);
-        
-        transaction.update(studentFeeRef, {
-          assignedFees,
-          totalAmount: summary.totalAmount,
-          paidAmount: summary.paidAmount,
-          dueAmount: summary.dueAmount,
-          status: summary.status,
-        });
       }
+      
+      const summary = studentFeeService.calculateSummary(assignedFees);
+      
+      transaction.update(studentFeeRef, {
+        assignedFees,
+        totalAmount: assignedFeeId === "DONATION" ? summary.totalAmount + amount : summary.totalAmount,
+        paidAmount: assignedFeeId === "DONATION" ? summary.paidAmount + amount : summary.paidAmount,
+        dueAmount: summary.dueAmount,
+        status: summary.status,
+      });
     });
 
     if (!createdPayment) {
       throw new Error("Payment collection failed.");
+    }
+
+    // Fire notification to parent (non-blocking, best-effort)
+    if (parentId && assignedFeeId !== "DONATION") {
+      notificationService.createNotificationSafe({
+        madrassaId,
+        type: "FEES",
+        title: "Fee Payment Received",
+        message: `A payment of ₹${amount.toLocaleString()} has been recorded. Receipt No: ${createdPayment.receiptNo}.`,
+        receiverType: "USER",
+        receiverIds: [parentId],
+        priority: "MEDIUM",
+        status: "ACTIVE",
+        readBy: [],
+      } as any);
     }
 
     return createdPayment;
@@ -161,11 +172,22 @@ export const paymentService = {
       if (payment.status === "VOID") {
         throw new Error("Payment is already voided.");
       }
+
+      // Expense/Donation mirrors: just mark as VOID, no ledger rollback needed
+      const isNonStudentTransaction = 
+        (payment as any).transactionType === "EXPENSE" ||
+        (payment as any).transactionType === "DONATION" ||
+        payment.studentId === "N/A";
+
+      if (isNonStudentTransaction) {
+        transaction.update(paymentRef, { status: "VOID" });
+        return;
+      }
       
       const docId = `${payment.studentId}_${payment.academicYearId}`;
       const studentFeeRef = doc(db, "studentFees", docId as string);
       const studentFeeSnap = await transaction.get(studentFeeRef);
-      
+
       if (!studentFeeSnap.exists()) {
         throw new Error("Student fee record not found for rollback.");
       }
@@ -314,10 +336,8 @@ export const paymentService = {
       constraints.push(where("paymentDate", "<=", Timestamp.fromDate(filters.dateRange.end)));
     }
 
-    if (!filters?.studentId && !filters?.paymentMethod && !filters?.dateRange) {
-      constraints.push(orderBy("createdAt", "desc"));
-    }
-    
+    // Always sort by paymentDate so cursor-based pagination works correctly for all query types
+    constraints.push(orderBy("paymentDate", "desc"));
     constraints.push(limit(pageSize));
 
     if (lastDoc) {
@@ -326,17 +346,8 @@ export const paymentService = {
 
     const q = query(collection(db, COLLECTION), ...constraints);
     const snap = await getDocs(q);
-
-    // Sort client-side if we omitted the orderBy clause due to secondary filters
     const payments = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as FeePayment);
-    if (filters?.studentId || filters?.paymentMethod || filters?.dateRange) {
-      payments.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-        return timeB - timeA;
-      });
-    }
-    
+
     return {
       payments,
       lastDoc: snap.docs.length > 0 ? (snap.docs[snap.docs.length - 1] || null) : null
@@ -459,6 +470,9 @@ export const paymentService = {
     
     activeSnap.docs.forEach(docSnap => {
       const p = docSnap.data() as FeePayment;
+      // Exclude expense/donation mirrors from fee collection stats
+      const txType = (p as any).transactionType;
+      if (txType === 'EXPENSE' || txType === 'DONATION') return;
       monthCollection += p.amount;
       if (p.paymentDate.toDate() >= today) {
         todayCollection += p.amount;

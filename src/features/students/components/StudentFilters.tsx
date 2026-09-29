@@ -4,12 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Class } from "@/types/schema";
 
 interface StudentFiltersProps {
   onSearch: (filters: Record<string, string>) => void;
+  classes?: Class[];
 }
 
-export function StudentFilters({ onSearch }: StudentFiltersProps) {
+export function StudentFilters({ onSearch, classes = [] }: StudentFiltersProps) {
   const [admissionNo, setAdmissionNo] = useState("");
   const [nameSearch, setNameSearch] = useState("");
   const [classId, setClassId] = useState("");
@@ -18,7 +21,7 @@ export function StudentFilters({ onSearch }: StudentFiltersProps) {
     onSearch({
       ...(admissionNo && { admissionNo }),
       ...(nameSearch && { nameSearch }),
-      ...(classId && { classId }),
+      ...(classId && classId !== "ALL" && { classId }),
     });
   };
 
@@ -44,12 +47,19 @@ export function StudentFilters({ onSearch }: StudentFiltersProps) {
       </div>
       <div className="space-y-1 flex-1">
         <label className="text-sm font-medium">Class</label>
-        <Input 
-          placeholder="Class ID..." 
-          value={classId} 
-          onChange={(e) => setClassId(e.target.value)} 
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-        />
+        <Select value={classId} onValueChange={setClassId}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Classes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All Classes</SelectItem>
+            {classes.map((cls) => (
+              <SelectItem key={cls.id} value={cls.id as string}>
+                {cls.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <Button onClick={handleSearch}>
         <Search className="w-4 h-4 mr-2" />

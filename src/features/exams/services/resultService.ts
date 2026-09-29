@@ -15,6 +15,7 @@ import { Result, StudentResult, GradeConfig } from "@/types/schema";
 import { gradeSettingsService } from "@/features/settings/services/gradeSettingsService";
 import { marksService } from "./marksService";
 import { examService } from "./examService";
+import { notificationService } from "@/features/notifications/services/notificationService";
 
 const COLLECTION = "results";
 
@@ -202,6 +203,13 @@ export const resultService = {
     const docId = resultService.getResultDocumentId(examId, classId);
     const docRef = doc(db, COLLECTION, docId as string);
 
+    // Fetch exam details to get the name for the notification message
+    let examName = "an exam";
+    try {
+      const exam = await examService.getExam(examId);
+      if (exam?.name) examName = exam.name;
+    } catch { /* non-critical */ }
+
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(docRef);
       if (!snap.exists()) throw new Error("Results document not found. Generate results first.");
@@ -216,6 +224,19 @@ export const resultService = {
         updatedAt: serverTimestamp()
       });
     });
+
+    // Notify parents of this class (broadcast to PARENT role, filtered by CLASS)
+    notificationService.createNotificationSafe({
+      madrassaId: (await examService.getExam(examId))?.madrassaId ?? "",
+      type: "RESULT",
+      title: "Exam Results Published",
+      message: `Results for ${examName} are now available. Log in to view your child's performance.`,
+      receiverType: "CLASS",
+      receiverIds: [classId],
+      priority: "HIGH",
+      status: "ACTIVE",
+      readBy: [],
+    } as any);
   },
 
   /**

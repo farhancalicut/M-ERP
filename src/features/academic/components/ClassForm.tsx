@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { staffService } from "@/features/staff/services/staffService";
 import { User } from "@/types/schema";
+import { Controller } from "react-hook-form";
 
 interface ClassFormProps {
   onSubmit: (data: ClassFormData) => Promise<void>;
@@ -25,7 +26,7 @@ interface ClassFormProps {
 }
 
 export function ClassForm({ onSubmit, defaultValues, isSubmitting, error }: ClassFormProps) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClassFormData>({
+  const { register, handleSubmit, setValue, watch, control, formState: { errors } } = useForm<ClassFormData>({
     resolver: zodResolver(classSchema) as any,
     defaultValues: {
       globalClassId: defaultValues?.globalClassId || "",
@@ -73,16 +74,22 @@ export function ClassForm({ onSubmit, defaultValues, isSubmitting, error }: Clas
       <FormSection title="Class Details">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField label="Standard Class" required error={errors.globalClassId?.message as string | undefined}>
-            <Select onValueChange={(val) => setValue("globalClassId", val, { shouldValidate: true })} defaultValue={defaultValues?.globalClassId || ""}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a class" />
-              </SelectTrigger>
-              <SelectContent>
-                {STANDARD_CLASSES.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="globalClassId"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STANDARD_CLASSES.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </FormField>
           
           <FormField label="Division (Optional)" error={errors.division?.message as string | undefined}>
@@ -95,20 +102,26 @@ export function ClassForm({ onSubmit, defaultValues, isSubmitting, error }: Clas
         </FormField>
         
         <FormField label="Class Teacher (Optional)" error={errors.classTeacherId?.message as string | undefined}>
-          <Select 
-            onValueChange={(val) => setValue("classTeacherId", val === "none" ? undefined : val, { shouldValidate: true })} 
-            value={watch("classTeacherId") || "none"}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a teacher" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">-- No Teacher Assigned --</SelectItem>
-              {teachers.map(t => (
-                <SelectItem key={t.id} value={t.id as string}>{t.displayName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Controller
+              name="classTeacherId"
+              control={control}
+              render={({ field }) => (
+                <Select 
+                  onValueChange={(val) => field.onChange(val === "none" ? undefined : val)} 
+                  value={field.value || "none"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a teacher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- No Teacher Assigned --</SelectItem>
+                    {teachers.map(t => (
+                      <SelectItem key={t.id} value={t.id as string}>{t.displayName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
         </FormField>
 
         <div className="flex items-center space-x-2 pt-2">

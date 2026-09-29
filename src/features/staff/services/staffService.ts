@@ -17,7 +17,6 @@ export interface OnboardStaffData {
   address?: string | undefined;
   bloodGroup?: string | undefined;
   identityMarks?: string | undefined;
-  baseSalary?: number | undefined;
 }
 
 export const staffService = {
@@ -53,10 +52,6 @@ export const staffService = {
 
     if (data.assignedClassIds && data.assignedClassIds.length > 0) {
       pendingData.assignedClassIds = data.assignedClassIds;
-    }
-
-    if (data.baseSalary !== undefined) {
-      pendingData.baseSalary = data.baseSalary;
     }
 
     await setDoc(pendingUserRef, pendingData);

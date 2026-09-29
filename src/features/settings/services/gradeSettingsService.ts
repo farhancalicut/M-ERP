@@ -18,14 +18,11 @@ export const gradeSettingsService = {
     return null;
   },
 
-  validateGrades(grades: SettingsGradeBoundary[], failurePercentage: number) {
+  validateGrades(grades: SettingsGradeBoundary[]) {
     // Check min < max
     for (const g of grades) {
       if (g.minPercentage >= g.maxPercentage) {
         throw new Error(`Grade ${g.grade} has invalid percentage range (${g.minPercentage} - ${g.maxPercentage})`);
-      }
-      if (failurePercentage > g.minPercentage && failurePercentage < g.maxPercentage) {
-        throw new Error(`Failure percentage (${failurePercentage}%) overlaps with Grade ${g.grade}`);
       }
     }
 
@@ -43,18 +40,17 @@ export const gradeSettingsService = {
   },
 
   async updateGradeSettings(madrassaId: string, data: Partial<GradeSettings>, userId: string): Promise<void> {
-    if (data.grades !== undefined || data.failurePercentage !== undefined) {
+    if (data.grades !== undefined) {
       // If we are updating grades, we need the full picture to validate
       let current;
       try {
-        current = await this.getGradeSettings(madrassaId) || { grades: [], failurePercentage: 0 };
+        current = await this.getGradeSettings(madrassaId) || { grades: [] };
       } catch (e) {
         console.error("FAILED IN GETTING GRADE SETTINGS", e);
         throw new Error("Failed reading grade settings: " + (e as Error).message);
       }
       const gradesToValidate = data.grades ?? current.grades;
-      const failPctToValidate = data.failurePercentage ?? current.failurePercentage;
-      this.validateGrades(gradesToValidate, failPctToValidate);
+      this.validateGrades(gradesToValidate);
     }
 
     const docRef = doc(db, COLLECTION, this.getDocId(madrassaId));

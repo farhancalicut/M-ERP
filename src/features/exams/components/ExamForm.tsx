@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Exam, Class, Subject } from "@/types/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check } from "lucide-react";
 import { format } from "date-fns";
 
 export interface ExamFormValues {
@@ -35,7 +35,7 @@ export function ExamForm({ initialData, classes, onSubmit, isSubmitting, disable
       examType: initialData?.examType || "Monthly",
       startDate: initialData?.startDate ? format(initialData.startDate.toDate(), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
       endDate: initialData?.endDate ? format(initialData.endDate.toDate(), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
-      status: initialData?.status || "DRAFT",
+      status: initialData?.status || "ACTIVE",
       classIds: initialData?.classIds || [],
       includeCE: initialData?.includeCE || false,
       maxCEMarks: initialData?.maxCEMarks || 20
@@ -79,8 +79,6 @@ export function ExamForm({ initialData, classes, onSubmit, isSubmitting, disable
                 <SelectContent>
                   <SelectItem value="DRAFT">Draft</SelectItem>
                   <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="ARCHIVED">Archived</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -129,31 +127,72 @@ export function ExamForm({ initialData, classes, onSubmit, isSubmitting, disable
       </div>
 
       <div className="space-y-4">
-        <Label>Applicable Classes</Label>
-        <div className="border rounded-md p-4 bg-muted/20">
-          <Controller
-            control={control}
-            name="classIds"
-            rules={{ required: "Select at least one class" }}
-            render={({ field }) => (
-              <div className="flex flex-wrap gap-2">
-                {classes.map(cls => {
-                  const isSelected = selectedClassIds.includes(cls.id!);
-                  return (
-                    <Badge 
-                      key={cls.id}
-                      variant={isSelected ? "default" : "outline"}
-                      className="cursor-pointer text-sm py-1 px-3"
-                      onClick={() => !disabled && !isSubmitting && toggleClass(cls.id!, field.onChange)}
+        <Controller
+          control={control}
+          name="classIds"
+          rules={{ required: "Select at least one class" }}
+          render={({ field }) => {
+            const currentSelected = field.value || [];
+            const allSelected = classes.length > 0 && classes.every(c => c.id && currentSelected.includes(c.id));
+            const handleToggleAll = (e: React.MouseEvent) => {
+              e.preventDefault();
+              if (disabled || isSubmitting) return;
+              if (allSelected) {
+                field.onChange([]);
+              } else {
+                field.onChange(classes.map(c => c.id!).filter(Boolean));
+              }
+            };
+
+            return (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-base font-semibold">Applicable Classes</Label>
+                    <p className="text-xs text-muted-foreground">Select classes that will participate in this exam.</p>
+                  </div>
+                  {classes.length > 0 && !disabled && (
+                    <div
+                      onClick={handleToggleAll}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium cursor-pointer transition-colors select-none self-start sm:self-auto ${
+                        allSelected
+                          ? "bg-primary/10 border-primary text-primary hover:bg-primary/20"
+                          : "bg-muted/50 border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                     >
-                      {cls.name}
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
-          />
-        </div>
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                        allSelected ? "bg-primary border-primary text-primary-foreground" : "border-slate-300 dark:border-slate-700 bg-background"
+                      }`}>
+                        {allSelected && <Check className="w-3 h-3" />}
+                      </div>
+                      <span>Mark All</span>
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({currentSelected.length}/{classes.length})
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="border rounded-md p-4 bg-muted/20">
+                  <div className="flex flex-wrap gap-2">
+                    {classes.map(cls => {
+                      const isSelected = currentSelected.includes(cls.id!);
+                      return (
+                        <Badge 
+                          key={cls.id}
+                          variant={isSelected ? "default" : "outline"}
+                          className="cursor-pointer text-sm py-1 px-3"
+                          onClick={() => !disabled && !isSubmitting && toggleClass(cls.id!, field.onChange)}
+                        >
+                          {cls.name}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          }}
+        />
         {errors.classIds && <p className="text-sm text-red-500">{errors.classIds.message}</p>}
       </div>
 

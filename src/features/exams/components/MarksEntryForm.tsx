@@ -35,6 +35,16 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
 
   const activeSubjects = exam.classSubjects?.[classId] || exam.subjects || [];
 
+  // Guard: no subjects configured for this class
+  if (activeSubjects.length === 0) {
+    return (
+      <div className="text-center p-8 border rounded-lg text-muted-foreground">
+        <p className="font-semibold text-foreground">No subjects configured for this class.</p>
+        <p className="text-sm mt-1">Please ask the Principal to edit this exam and ensure subjects are linked to this class.</p>
+      </div>
+    );
+  }
+
   const { register, control, handleSubmit, watch, setValue, getValues, formState: { isDirty } } = useForm({
     defaultValues: {
       marks: markDoc.marks
@@ -49,9 +59,9 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
     try {
       setIsSubmitting(true);
       if (isPrincipal) {
-        await marksService.updateMarks(exam.id as string, classId, data.marks, uid);
+        await marksService.updateMarks(exam.id as string as string, classId, data.marks, uid);
       } else {
-        await marksService.saveDraft(exam.id as string, classId, data.marks, uid);
+        await marksService.saveDraft(exam.id as string as string, classId, data.marks, uid);
       }
       toast.success("Marks draft saved successfully.");
       onRefresh();
@@ -67,8 +77,8 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
     try {
       setIsSubmitting(true);
       const currentData = getValues();
-      await marksService.saveDraft(exam.id as string, classId, currentData.marks, uid);
-      await marksService.submitMarks(exam.id as string, classId, currentData.marks, uid);
+      // submitMarks internally saves and marks as submitted in a single transaction
+      await marksService.submitMarks(exam.id as string as string, classId, currentData.marks, uid);
       toast.success("Marks submitted successfully.");
       onRefresh();
     } catch (err: unknown) {
@@ -78,12 +88,13 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
     }
   };
 
-  const handleLock = async () => {
-    if (!confirm("Are you sure you want to lock these marks? No one can edit them after locking, and they will be ready for result generation.")) return;
+  const handleLockAndSubmit = async () => {
+    if (!confirm("Are you sure you want to submit AND lock these marks? No one can edit them after locking, and they will be ready for result generation.")) return;
     try {
       setIsSubmitting(true);
-      await marksService.lockMarks(exam.id as string, classId, uid);
-      toast.success("Marks locked successfully.");
+      const currentData = getValues();
+      await marksService.submitAndLockMarks(exam.id as string as string, classId, currentData.marks, uid);
+      toast.success("Marks submitted and locked successfully.");
       onRefresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to lock marks.");
@@ -96,7 +107,7 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
     if (!confirm("Are you sure you want to unlock these marks?")) return;
     try {
       setIsSubmitting(true);
-      await marksService.unlockMarks(exam.id as string, classId, uid);
+      await marksService.unlockMarks(exam.id as string as string, classId, uid);
       toast.success("Marks unlocked successfully.");
       onRefresh();
     } catch (err: unknown) {
@@ -152,15 +163,17 @@ export function MarksEntryForm({ exam, markDoc, classId, students, assignedSubje
               <Button size="sm" variant="outline" onClick={handleSubmit(handleSaveDraft)} disabled={isSubmitting || (!isDirty && !isPrincipal)}>
                 <Save className="h-4 w-4 mr-2" /> Save Draft
               </Button>
-              <Button size="sm" onClick={handleSubmitMarks} disabled={isSubmitting}>
-                <Send className="h-4 w-4 mr-2" /> Submit Marks
-              </Button>
+              {!isPrincipal && (
+                <Button size="sm" onClick={handleSubmitMarks} disabled={isSubmitting}>
+                  <Send className="h-4 w-4 mr-2" /> Submit Marks
+                </Button>
+              )}
+              {isPrincipal && !isLocked && (
+                <Button size="sm" variant="destructive" onClick={handleLockAndSubmit} disabled={isSubmitting}>
+                  <Lock className="h-4 w-4 mr-2" /> Lock & Submit Marks
+                </Button>
+              )}
             </>
-          )}
-          {isPrincipal && !isLocked && (
-             <Button size="sm" variant="destructive" onClick={handleLock} disabled={isSubmitting}>
-               <Lock className="h-4 w-4 mr-2" /> Lock Marks
-             </Button>
           )}
           {isPrincipal && isLocked && (
              <Button size="sm" variant="outline" onClick={handleUnlock} disabled={isSubmitting}>

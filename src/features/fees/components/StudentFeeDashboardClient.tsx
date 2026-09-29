@@ -1,228 +1,187 @@
-"use client";
+﻿"use client";
 
-import { Student, StudentFee, FeePayment, AssignedFee } from "@/types/schema";
+import { Student, StudentFee, FeePayment } from "@/types/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { IndianRupee, CreditCard, Banknote, History, AlertTriangle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { PaymentForm } from "./PaymentForm";
-import { paymentService } from "../services/paymentService";
+import { Badge } from "@/components/ui/badge";
+import { History, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { RecordPaymentSheet } from "./RecordPaymentSheet";
+import { ReceiptModal } from "./ReceiptModal";
 import { useAuthStore } from "@/stores/authStore";
-import { toast } from "sonner";
-import { PaymentFormValues } from "../schemas/feeSchemas";
-
+import { useRouter } from "next/navigation";
 
 interface StudentFeeDashboardClientProps {
   student: Student;
   feeSummary: StudentFee | null;
   payments: FeePayment[];
-  isParent?: boolean;
+  className?: string;
 }
 
-export function StudentFeeDashboardClient({ student, feeSummary, payments, isParent }: StudentFeeDashboardClientProps) {
+export function StudentFeeDashboardClient({ student, feeSummary, payments, className: resolvedClassName }: StudentFeeDashboardClientProps) {
   const { userData, currentAcademicYear } = useAuthStore();
+  const router = useRouter();
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState<any | null>(null);
+  const [localPayments, setLocalPayments] = useState<FeePayment[]>(payments);
+
   const assignedFees = feeSummary?.assignedFees || [];
-  
-  // Outstanding fees are those not FULLY paid.
   const outstandingFees = assignedFees.filter(f => f.status !== "PAID" && f.status !== "CANCELLED" && f.status !== "WAIVED");
-  
-  const [selectedFee, setSelectedFee] = useState<AssignedFee | null>(null);
+  const totalDue = feeSummary?.dueAmount || 0;
+  const totalPaid = feeSummary?.paidAmount || 0;
+  const totalFee = feeSummary?.totalAmount || 0;
+  const studentId = (student as any).id || (student as any).studentId;
 
-  // Auto-select the first outstanding fee if none is selected
-  useEffect(() => {
-    if (outstandingFees.length > 0 && !selectedFee) {
-      setSelectedFee(outstandingFees[0] as AssignedFee);
-    }
-  }, [outstandingFees, selectedFee]);
-
-  const handlePaymentSubmit = async (data: PaymentFormValues) => {
-    if (!userData || !currentAcademicYear || !selectedFee) {
-      toast.error("Missing required data to process payment.");
-      return;
-    }
-
-    try {
-      await paymentService.collectPayment(
-        userData.madrassaId,
-        (student as any).id || (student as any).studentId,
-        student.parentId,
-        currentAcademicYear.id as string,
-        selectedFee.feeCategoryId,
-        selectedFee.id as string,
-        data.amount,
-        data.paymentMethod as any,
-        userData.uid,
-        userData.role,
-        data.remarks,
-        data.paymentDate
-      );
-      toast.success("Payment recorded successfully!");
-      // Short delay before closing/refreshing is handled by parent, or we can just trigger a window reload here.
-      // Ideally, the parent sheet handles the close and refresh. For now, since it's inside the sheet, we reload.
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to record payment");
-      throw error; 
-    }
+  const handlePaymentClose = () => {
+    setPaymentOpen(false);
+    // Reload page data via router.refresh (soft refresh, no full reload)
+    router.refresh();
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full p-2">
-      
-      {/* Left Column: Payment Processing */}
-      <div className="lg:col-span-2 space-y-6">
-        
-        {/* Header Section */}
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Record New Payment</h2>
-          <p className="text-muted-foreground mt-1">Enter the details below to process student fee collections.</p>
-        </div>
-
-        {/* Student Profile Card */}
-        <Card className="border shadow-sm bg-card">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-12 w-12 bg-teal-800 dark:bg-teal-600 text-white rounded-xl">
-                <AvatarFallback className="bg-teal-800 dark:bg-teal-600 rounded-xl text-lg font-bold">
-                  {(student.name.substring(0, 2)).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h3 className="text-lg font-bold text-foreground">{student.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Admission #{student.studentId || "N/A"} | Class ID: {student.classId}
-                </p>
-              </div>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Student Profile Card */}
+      <Card>
+        <CardContent className="p-5 flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-14 w-14 bg-primary/10 text-primary rounded-xl">
+              <AvatarFallback className="bg-primary/10 rounded-xl text-xl font-bold text-primary">
+                {student.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">{student.name}</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {resolvedClassName || "—"} · Adm #{(student as any).studentId || (student as any).admissionNo || "N/A"}
+              </p>
             </div>
-            {!isParent && (
-              <Button variant="ghost" className="text-teal-700 dark:text-teal-400 hover:text-teal-900 dark:text-teal-300 hover:bg-teal-50 dark:bg-teal-900/20">
-                View Profile
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/students/${studentId}`)}
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> View Profile
+            </Button>
+            {totalDue > 0 && (
+              <Button size="sm" onClick={() => setPaymentOpen(true)}>
+                Collect Fee
               </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Transaction Details */}
-        <Card className="border shadow-sm bg-card">
-          <CardHeader className="border-b bg-muted/20 pb-4">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Transaction Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            {!selectedFee ? (
-              <div className="text-center p-8 text-muted-foreground">
-                <Banknote className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                <p>No outstanding fees to pay.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Ledger */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Fee Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Fee</span>
+                <span className="font-semibold">Rs.{totalFee.toLocaleString("en-IN")}</span>
               </div>
-            ) : (
-              <div className="animate-in fade-in">
-                <PaymentForm
-                  studentId={(student as any).id || (student as any).studentId}
-                  maxAmount={selectedFee.dueAmount}
-                  feeName={selectedFee.feeName}
-                  role={userData?.role as any}
-                  allowPartialPayment={true}
-                  action={handlePaymentSubmit}
-                />
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Paid</span>
+                <span className="font-semibold text-green-600">Rs.{totalPaid.toLocaleString("en-IN")}</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right Column: Ledger & History */}
-      <div className="space-y-6">
-        
-        {/* Student Ledger */}
-        <Card className="border shadow-sm bg-muted/10">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-bold text-foreground">Student Ledger</CardTitle>
-            <p className="text-xs text-muted-foreground">Outstanding dues as of today</p>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="px-6 space-y-3">
-              {outstandingFees.length === 0 ? (
-                <div className="text-sm text-green-600 font-medium py-2">All dues are cleared.</div>
-              ) : (
-                outstandingFees.map(fee => (
-                  <div 
-                    key={fee.id} 
-                    onClick={() => setSelectedFee(fee)}
-                    className={`flex justify-between items-center pb-2 border-b cursor-pointer transition-colors p-2 rounded-md ${
-                      selectedFee?.id === fee.id ? "bg-teal-50 dark:bg-teal-900/20 dark:bg-teal-900/20 border-teal-200" : "hover:bg-muted/50 border-transparent border-b-border"
-                    }`}
-                  >
-                    <span className="text-sm font-medium text-foreground">{fee.feeName}</span>
-                    <span className="text-sm font-semibold text-foreground">₹{fee.dueAmount.toLocaleString()}</span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="mt-4 px-6 pt-4 border-t flex justify-between items-center mb-6">
-              <span className="font-semibold text-foreground">Total Outstanding</span>
-              <span className="text-xl font-bold text-red-600 dark:text-red-400">
-                ₹{(feeSummary?.dueAmount || 0).toLocaleString()}
-              </span>
-            </div>
-
-            {feeSummary && feeSummary.dueAmount > 0 && (
-              <div className="mx-6 mb-6 bg-red-50 dark:bg-red-900/20 dark:bg-red-900/10 border border-red-100 dark:border-red-900 rounded-lg p-3 flex gap-3 text-red-700 dark:text-red-400 dark:text-red-400 text-sm">
-                <AlertTriangle className="w-5 h-5 shrink-0" />
-                <p>Please select a specific fee from the list above to process its payment.</p>
+              <div className="flex justify-between text-sm border-t pt-3">
+                <span className="font-semibold">Outstanding</span>
+                <span className={`font-bold text-base ${totalDue > 0 ? "text-red-600" : "text-green-600"}`}>
+                  Rs.{totalDue.toLocaleString("en-IN")}
+                </span>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Recent Payments */}
-        <Card className="border shadow-sm bg-card">
-          <CardHeader className="pb-4 border-b bg-muted/20">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Recent Payments
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="h-[250px] overflow-y-auto">
-              {payments.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  <History className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  No recent payments.
+              {totalDue === 0 ? (
+                <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-1">
+                  <CheckCircle2 className="h-4 w-4" /> All dues cleared
                 </div>
               ) : (
-                <div className="p-6 space-y-6">
-                  {payments.slice(0, 5).map(payment => (
-                    <div key={payment.id} className="relative pl-6 before:absolute before:left-[11px] before:top-2 before:bottom-[-24px] last:before:bottom-0 before:w-[2px] before:bg-muted">
-                      <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900/30 border-2 border-white flex items-center justify-center z-10">
-                        <div className="w-2 h-2 rounded-full bg-teal-600" />
-                      </div>
+                <Button className="w-full mt-2" onClick={() => setPaymentOpen(true)}>
+                  Collect Fee
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Outstanding fee categories */}
+          {outstandingFees.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Outstanding Dues
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {outstandingFees.map(fee => (
+                  <div key={fee.id} className="flex justify-between items-center text-sm">
+                    <span className="text-foreground">{fee.feeName}</span>
+                    <span className="font-bold text-red-600">Rs.{fee.dueAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Right: Payment History */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4" /> Payment History
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {payments.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  No payments recorded yet.
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {payments.map(p => (
+                    <div key={p.id} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-sm font-semibold text-foreground">
-                          Paid ₹{payment.amount.toLocaleString()}
-                        </p>
+                        <p className="text-sm font-semibold text-foreground">Rs.{p.amount.toLocaleString("en-IN")}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(payment.createdAt?.toMillis ? payment.createdAt.toMillis() : Date.now(), "MMMM d, yyyy")} • Receipt #{payment.paymentNo}
+                          {p.paymentDate?.toDate ? format(p.paymentDate.toDate(), "dd MMM yyyy") : "—"} · {p.paymentMethod?.replace("_", " ")} · #{p.paymentNo}
                         </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`text-[10px] font-bold border-0 ${p.status === "VOID" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                          {p.status === "VOID" ? "VOIDED" : "PAID"}
+                        </Badge>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setReceiptPayment(p)}>
+                          Receipt
+                        </Button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-            {payments.length > 0 && (
-              <div className="p-4 border-t">
-                <Button variant="outline" className="w-full text-teal-700 dark:text-teal-400 hover:text-teal-800">
-                  View Full Statement
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Payment Sheet */}
+      {paymentOpen && currentAcademicYear?.id && (
+        <RecordPaymentSheet
+          isOpen={paymentOpen}
+          onClose={handlePaymentClose}
+          studentId={studentId}
+          academicYearId={currentAcademicYear.id}
+        />
+      )}
+
+      {/* Receipt Modal */}
+      <ReceiptModal payment={receiptPayment} onClose={() => setReceiptPayment(null)} />
     </div>
   );
 }

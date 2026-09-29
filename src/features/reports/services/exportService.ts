@@ -56,5 +56,65 @@ export const exportService = {
     });
 
     doc.save(`${filename}.pdf`);
+  },
+
+  /**
+   * Export a single fee payment receipt to PDF
+   */
+  generateReceiptPdf(payment: any, student: any, madrassaName: string = "Madrassa") {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(13, 148, 136); // Teal color
+    doc.text(madrassaName, 105, 20, { align: 'center' });
+    
+    doc.setFontSize(14);
+    doc.setTextColor(100);
+    doc.text('Payment Receipt', 105, 30, { align: 'center' });
+    
+    doc.setDrawColor(200);
+    doc.line(20, 35, 190, 35);
+    
+    // Details
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text(`Receipt No: ${payment.receiptNo || payment.paymentNo || payment.id}`, 20, 45);
+    
+    const dateStr = payment.createdAt?.toMillis 
+      ? new Date(payment.createdAt.toMillis()).toLocaleDateString()
+      : new Date().toLocaleDateString();
+    doc.text(`Date: ${dateStr}`, 140, 45);
+    
+    doc.text(`Student Name: ${student?.name || 'Unknown'}`, 20, 55);
+    doc.text(`Admission No: ${student?.admissionNo || 'N/A'}`, 140, 55);
+    doc.text(`Class: ${student?.className || student?.classId || 'N/A'}`, 20, 62);
+    
+    // Table
+    const tableData = [
+      [payment.feeName || payment.feeCategoryId || 'Fee Payment', `Rs. ${payment.amount}`]
+    ];
+    
+    autoTable(doc, {
+      startY: 75,
+      head: [['Fee Description', 'Amount Paid']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [13, 148, 136], textColor: 255 },
+      styles: { fontSize: 11, cellPadding: 5 }
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY || 100;
+    
+    doc.setFontSize(11);
+    doc.text(`Payment Method: ${payment.paymentMethod || 'N/A'}`, 20, finalY + 15);
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Thank you for the payment.', 105, finalY + 35, { align: 'center' });
+    doc.text('This is a computer-generated receipt.', 105, finalY + 42, { align: 'center' });
+    
+    doc.save(`Receipt-${payment.paymentNo || payment.id}.pdf`);
   }
 };

@@ -38,7 +38,7 @@ export const studentService = {
       where("parentId", "==", parentUserId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ studentId: d.id, ...d.data() } as unknown as Student));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Student));
   },
 
   getStudentsByIds: async (madrassaId: string, studentIds: string[]): Promise<Student[]> => {
@@ -54,7 +54,7 @@ export const studentService = {
         const data = docSnap.data() as Student;
         // Verify it belongs to the same madrassa just in case
         if (data.madrassaId === madrassaId) {
-          return { ...data, studentId: docSnap.id };
+          return { ...data, id: docSnap.id } as unknown as Student;
         }
       }
       return null;
@@ -234,16 +234,32 @@ export const studentService = {
 
 
   getParentStudents: async (madrassaId: string, parentUid: string): Promise<Student[]> => {
-    // According to Phase 8, students have a 'parentUserId' or 'parentId'. We will just query for it.
-    // If we assume parentId is stored on the student document:
+    // First, find the parent document by userId (auth UID)
+    const parentQ = query(
+      collection(db, "parents"),
+      where("madrassaId", "==", madrassaId),
+      where("userId", "==", parentUid),
+      limit(1)
+    );
+    const parentSnap = await getDocs(parentQ);
+    
+    if (parentSnap.empty) {
+      return [];
+    }
+    
+    const parentDoc = parentSnap.docs[0];
+    if (!parentDoc) return [];
+    const parentId = parentDoc.id;
+
+    // Then find students linked to this parentId
     const q = query(
       collection(db, COLLECTION), 
       where("madrassaId", "==", madrassaId), 
-      where("parentUid", "==", parentUid)
+      where("parentId", "==", parentId)
     );
     const snap = await getDocs(q);
     const students: Student[] = [];
-    snap.forEach(doc => students.push(doc.data() as Student));
+    snap.forEach(doc => students.push({ id: doc.id, ...doc.data() } as unknown as Student));
     return students;
   }
 };

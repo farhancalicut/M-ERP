@@ -19,12 +19,12 @@ import { CheckCircle, Save } from "lucide-react";
 
 const profileSchema = z.object({
   displayName: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email")
+  email: z.string().optional()
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-export function ProfileForm() {
+export function ProfileForm({ onSuccess }: { onSuccess?: () => void }) {
   const { userData, setUserData, madrassa, setMadrassa } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -60,6 +60,8 @@ export function ProfileForm() {
 
       if (isSetupIncomplete) {
         router.push("/management");
+      } else {
+        onSuccess?.();
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to update profile");
@@ -130,8 +132,7 @@ export function ProfileForm() {
 
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input {...form.register("email")} />
-              {form.formState.errors.email && <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>}
+              <Input {...form.register("email")} disabled className="bg-slate-50 dark:bg-slate-900 cursor-not-allowed" />
             </div>
 
             <div className="flex justify-end pt-4">
