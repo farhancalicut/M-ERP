@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { cn } from "@/lib/utils";
-import { Home, Building2, FileText, Settings, BookOpen } from "lucide-react";
+import { Home, Building2, FileText, Settings, BookOpen, ChevronUp, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { title: "Dashboard", href: "/super-admin", icon: Home },
@@ -14,6 +20,7 @@ const navItems = [
 
 export function SuperAdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { userData, isInitialized } = useAuthStore();
 
   if (!isInitialized || !userData) {
@@ -59,12 +66,11 @@ export function SuperAdminSidebar() {
         })}
       </nav>
       
-      <div className="px-4 py-4 mb-2">
-        <div className="border-t border-slate-100 dark:border-slate-800/50 my-2 pt-2"></div>
+      <div className="px-4 py-4 mb-2 mt-auto">
         <Link
           href="/super-admin/settings"
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-4",
             pathname.startsWith("/super-admin/settings")
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-800 hover:text-slate-900"
@@ -73,6 +79,39 @@ export function SuperAdminSidebar() {
           <Settings className={cn("h-4 w-4", pathname.startsWith("/super-admin/settings") ? "text-primary-foreground" : "text-slate-500 dark:text-slate-400")} />
           Settings
         </Link>
+        <div className="border-t border-slate-100 dark:border-slate-800/50 my-2 pt-2"></div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left outline-none">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-300 truncate">
+                  {userData.displayName || "Super Admin"}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {userData.email}
+                </p>
+              </div>
+              <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56 mb-2" align="start" side="top">
+            <DropdownMenuItem 
+              onClick={async () => {
+                try {
+                  const { authService } = await import("@/features/auth/services/authService");
+                  await authService.logout();
+                  router.push("/login");
+                } catch (error) {
+                  console.error("Logout failed", error);
+                }
+              }} 
+              className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
