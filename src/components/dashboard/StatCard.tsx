@@ -27,16 +27,16 @@ export function StatCard({ title, value, description, icon: Icon, trend, colorTh
 
   return (
     <Card className="shadow-sm border-slate-200 dark:border-slate-800">
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-6">
-          <div className={cn("p-3 rounded-xl flex items-center justify-center", themeStyles[colorTheme])}>
-            <Icon className="w-5 h-5" />
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0 mb-4 sm:mb-6">
+          <div className={cn("p-2.5 sm:p-3 rounded-xl flex items-center justify-center shrink-0", themeStyles[colorTheme])}>
+            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           {trend && (
             <div className={cn(
-              "text-xs font-semibold flex items-center",
+              "text-[11px] sm:text-xs font-semibold flex items-center",
               trend.isPositive === true ? "text-primary" :
-              trend.isPositive === false ? "text-red-500" : "text-slate-600 dark:text-slate-300 dark:text-slate-600"
+              trend.isPositive === false ? "text-red-500" : "text-slate-600 dark:text-slate-300"
             )}>
               {trend.label || (
                 <>
@@ -48,8 +48,8 @@ export function StatCard({ title, value, description, icon: Icon, trend, colorTh
           )}
         </div>
         <div>
-          <h3 className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{title}</h3>
-          <div className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">{value}</div>
+          <h3 className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{title}</h3>
+          <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-slate-100 truncate" title={String(value)}>{value}</div>
           {description && (
              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{description}</p>
           )}

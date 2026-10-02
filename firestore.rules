@@ -312,11 +312,7 @@ service cloud.firestore {
     }
 
     match /notifications/{id} {
-      // A user can read a notification if it belongs to their madrassa AND:
-      // - It is broadcast to ALL roles, or to their specific role, or
-      // - It is targeted to their specific UID (USER), or to their student IDs (STUDENT), or
-      // - They are MANAGEMENT or PRINCIPAL (can read all)
-      allow read: if canAccess(resource.data.madrassaId) && (
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (
         isManagement() || isPrincipal() ||
         resource.data.receiverType == 'ALL' ||
         resource.data.receiverType == request.auth.token.role ||
@@ -324,7 +320,7 @@ service cloud.firestore {
         (resource.data.receiverType == 'USER' && request.auth.uid in resource.data.receiverIds) ||
         (resource.data.receiverType == 'STUDENT' && request.auth.uid in resource.data.receiverIds) ||
         (resource.data.receiverType == 'CLASS')
-      );
+      ));
       // Notifications are created server-side by services (management, principal, teacher actions)
       allow create: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal() || isTeacher());
       // Allow any authenticated user in this madrassa to update readBy (mark as read)
@@ -337,7 +333,7 @@ service cloud.firestore {
     }
 
     match /notices/{id} {
-      allow read: if canAccess(resource.data.madrassaId);
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
       allow create: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
       allow update, delete: if canWrite(resource.data.madrassaId) && (isManagement() || isPrincipal());
     }

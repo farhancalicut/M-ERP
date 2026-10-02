@@ -279,42 +279,42 @@ export function ParentRoutineForm() {
                             <div key={task.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border rounded-lg hover:border-primary/20 transition-colors">
                               <div className="font-medium flex-1 text-lg">{task.name}</div>
                               
-                              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                                <div className="flex bg-muted/30 rounded-md border p-1 shadow-sm">
+                              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full md:w-auto">
+                                <div className="flex w-full sm:w-auto bg-muted/30 rounded-md border p-1 shadow-sm">
                                   <button
                                     disabled={isReadOnly}
                                     onClick={() => handleStatusChange(task.id, "DONE")}
                                     className={cn(
-                                      "flex items-center px-4 py-2 rounded text-sm font-semibold transition-all",
+                                      "flex-1 flex justify-center items-center px-2 sm:px-4 py-2 rounded text-xs sm:text-sm font-semibold transition-all",
                                       tState?.status === "DONE" ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400 shadow-sm" : "hover:bg-muted text-muted-foreground",
                                       isReadOnly && "opacity-70 cursor-not-allowed"
                                     )}
                                   >
-                                    <CheckCircle2 className="w-5 h-5 mr-1.5" />
+                                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-1.5 shrink-0" />
                                     Done
                                   </button>
                                   <button
                                     disabled={isReadOnly}
                                     onClick={() => handleStatusChange(task.id, "PARTIAL")}
                                     className={cn(
-                                      "flex items-center px-4 py-2 rounded text-sm font-semibold transition-all",
+                                      "flex-1 flex justify-center items-center px-2 sm:px-4 py-2 rounded text-xs sm:text-sm font-semibold transition-all",
                                       tState?.status === "PARTIAL" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 shadow-sm" : "hover:bg-muted text-muted-foreground",
                                       isReadOnly && "opacity-70 cursor-not-allowed"
                                     )}
                                   >
-                                    <AlertCircle className="w-5 h-5 mr-1.5" />
+                                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-1.5 shrink-0" />
                                     Partial
                                   </button>
                                   <button
                                     disabled={isReadOnly}
                                     onClick={() => handleStatusChange(task.id, "MISSED")}
                                     className={cn(
-                                      "flex items-center px-4 py-2 rounded text-sm font-semibold transition-all",
+                                      "flex-1 flex justify-center items-center px-2 sm:px-4 py-2 rounded text-xs sm:text-sm font-semibold transition-all",
                                       tState?.status === "MISSED" ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400 shadow-sm" : "hover:bg-muted text-muted-foreground",
                                       isReadOnly && "opacity-70 cursor-not-allowed"
                                     )}
                                   >
-                                    <XCircle className="w-5 h-5 mr-1.5" />
+                                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-1.5 shrink-0" />
                                     Missed
                                   </button>
                                 </div>

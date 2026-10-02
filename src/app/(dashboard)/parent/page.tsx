@@ -201,17 +201,27 @@ export default function ParentDashboard() {
     fetchChildren();
   }, [userData?.madrassaId, userData?.id, userData?.email, (userData as any)?.domainId]);
 
-  // ── 2. Load dashboard data when child/year changes ──
   const loadDashboardData = useCallback(async (student: Student) => {
-    if (!userData?.madrassaId || !currentAcademicYear?.id) return;
+    if (!userData?.madrassaId) return;
     const madrassaId = userData.madrassaId;
-    const academicYearId = currentAcademicYear.id;
     const studentId = student.studentId;
 
     setLoadingData(true);
     setData(null);
 
     try {
+      let academicYearId = currentAcademicYear?.id;
+      if (!academicYearId) {
+        const { academicYearService } = await import("@/features/academic/services/academicYearService");
+        const res = await academicYearService.getAcademicYears(madrassaId, "ACTIVE", undefined, 1);
+        if (res.years.length > 0 && res.years[0]) {
+          academicYearId = res.years[0].id as string;
+        } else {
+          // No active academic year found
+          setLoadingData(false);
+          return;
+        }
+      }
       const today = getTodayStr();
 
       const [
@@ -246,6 +256,7 @@ export default function ParentDashboard() {
         // Today's routine log (checks if ANY routine log was submitted for today)
         getDocs(query(
           collection(db, "dailyRoutineLogs"),
+          where("madrassaId", "==", madrassaId),
           where("studentId", "==", studentId),
           where("date", "==", today)
         )),

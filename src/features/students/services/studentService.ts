@@ -38,7 +38,25 @@ export const studentService = {
       where("parentId", "==", parentUserId)
     );
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Student));
+    
+    // Enrich with class name
+    const students = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Student));
+    const studentsWithClasses = await Promise.all(
+      students.map(async (student) => {
+        if (student.classId) {
+          try {
+            const classDoc = await getDoc(doc(db, "classes", student.classId));
+            if (classDoc.exists()) {
+              student.className = classDoc.data().name;
+            }
+          } catch (e) {
+            console.error("Failed to fetch class for student", e);
+          }
+        }
+        return student;
+      })
+    );
+    return studentsWithClasses;
   },
 
   getStudentsByIds: async (madrassaId: string, studentIds: string[]): Promise<Student[]> => {
@@ -260,6 +278,23 @@ export const studentService = {
     const snap = await getDocs(q);
     const students: Student[] = [];
     snap.forEach(doc => students.push({ id: doc.id, ...doc.data() } as unknown as Student));
-    return students;
+    
+    // Enrich with class name
+    const studentsWithClasses = await Promise.all(
+      students.map(async (student) => {
+        if (student.classId) {
+          try {
+            const classDoc = await getDoc(doc(db, "classes", student.classId));
+            if (classDoc.exists()) {
+              student.className = classDoc.data().name;
+            }
+          } catch (e) {
+            console.error("Failed to fetch class for student", e);
+          }
+        }
+        return student;
+      })
+    );
+    return studentsWithClasses;
   }
 };

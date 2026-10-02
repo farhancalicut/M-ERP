@@ -14,28 +14,34 @@ export default function RoutinesDashboardPage() {
   
   return (
     <RoleGuard allowedRoles={["PRINCIPAL", "TEACHER"]}>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Daily Routines</h1>
-          <p className="text-muted-foreground mt-1">Manage routine templates and monitor class compliance.</p>
+      <div className="p-3 sm:p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="border-b pb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Daily Routines</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isTeacher 
+              ? "Monitor and review student daily routine compliance." 
+              : "Manage routine templates and monitor class compliance."}
+          </p>
         </div>
 
-        <Tabs defaultValue={isTeacher ? "reports" : "templates"} className="w-full">
-          <TabsList className="mb-4">
-            {!isTeacher && <TabsTrigger value="templates">Templates</TabsTrigger>}
-            <TabsTrigger value="reports">Compliance Reports</TabsTrigger>
-          </TabsList>
-          
-          {!isTeacher && (
-            <TabsContent value="templates">
+        {isTeacher ? (
+          <RoutineReports />
+        ) : (
+          <Tabs defaultValue="templates" className="w-full space-y-5">
+            <TabsList className="grid w-full max-w-xs grid-cols-2">
+              <TabsTrigger value="templates">Templates</TabsTrigger>
+              <TabsTrigger value="reports">Compliance</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="templates" className="mt-4 focus-visible:outline-none">
               <RoutineTemplatesList />
             </TabsContent>
-          )}
-          
-          <TabsContent value="reports">
-            <RoutineReports />
-          </TabsContent>
-        </Tabs>
+            
+            <TabsContent value="reports" className="mt-4 focus-visible:outline-none">
+              <RoutineReports />
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </RoleGuard>
   );

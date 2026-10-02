@@ -42,6 +42,7 @@ export interface Student {
   guardianRelation: Relationship;
   status: StudentStatus;
   isAlumniEligible: boolean;
+  className?: string;
   deletedAt?: Timestamp | null;
   deletedBy?: string | null;
   metadata?: Record<string, unknown>;
