@@ -61,6 +61,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     checkPlan();
   }, [madrassa?.subscriptionPlan, madrassa?.studentCount]);
 
+  useEffect(() => {
+    // Automatically close the sidebar when the route changes (useful for mobile overlay)
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
+
   return (
     <div className="fixed inset-0 flex bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Desktop Sidebar */}

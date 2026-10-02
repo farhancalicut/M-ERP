@@ -419,7 +419,7 @@ export interface Donation extends BaseEntity {
   alumniId?: string; // If this donation came from an alumni pledge
 }
 
-export interface DonationPledge extends BaseEntity {
+export interface DonationPledge extends Omit<BaseEntity, 'status'> {
   madrassaId: string;
   alumniId: string;
   amount: number;

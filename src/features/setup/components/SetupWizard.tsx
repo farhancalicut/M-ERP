@@ -80,7 +80,6 @@ export function SetupWizard({ madrassa, user }: { madrassa: Madrassa; user: User
           throw new Error("Passing percentage must be between 1 and 59");
         }
         await gradeSettingsService.updateGradeSettings(madrassa.id!, {
-          failurePercentage: grades.passPercentage,
           grades: [
             { id: "grade-a", grade: "A", minPercentage: 80, maxPercentage: 100, gradePoint: 4, remarks: "Excellent" },
             { id: "grade-b", grade: "B", minPercentage: 60, maxPercentage: 79, gradePoint: 3, remarks: "Good" },

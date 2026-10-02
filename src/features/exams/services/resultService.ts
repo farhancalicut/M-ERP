@@ -141,7 +141,7 @@ export const resultService = {
     for (const studentId of marksDoc.studentIds) {
       const studentMarks = marksDoc.marks[studentId] || {};
       const mappedConfig = gradeConfig ? {
-        passPercentage: gradeConfig.failurePercentage,
+        passPercentage: 33,
         grades: gradeConfig.grades
       } : { passPercentage: 33, grades: [] };
       const sResult = resultService.calculateStudentResult(

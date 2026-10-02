@@ -119,7 +119,7 @@ export function AlumniPledgesList() {
                       variant="outline" 
                       size="sm" 
                       className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleReject(pledge.id)}
+                      onClick={() => handleReject(pledge.id!)}
                       disabled={processingId !== null}
                     >
                       {processingId === pledge.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />} Reject
@@ -127,7 +127,7 @@ export function AlumniPledgesList() {
                     <Button 
                       size="sm" 
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => handleApprove(pledge.id)}
+                      onClick={() => handleApprove(pledge.id!)}
                       disabled={processingId !== null}
                     >
                       {processingId === pledge.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />} Approve

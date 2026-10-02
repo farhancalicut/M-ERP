@@ -161,7 +161,7 @@ service cloud.firestore {
     // ------------------------------------------
 
     match /academicYears/{id} {
-      allow read: if canAccess(resource.data.madrassaId);
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
       allow create: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
       allow update, delete: if canWrite(resource.data.madrassaId) && (isManagement() || isPrincipal());
     }
@@ -173,7 +173,7 @@ service cloud.firestore {
     }
 
     match /subjects/{id} {
-      allow read: if canAccess(resource.data.madrassaId);
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
       allow create: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
       allow update, delete: if canWrite(resource.data.madrassaId) && (isManagement() || isPrincipal());
     }
@@ -199,19 +199,19 @@ service cloud.firestore {
     }
 
     match /teachers/{id} {
-      allow read: if canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && userDoc().userId == resource.data.userId));
+      allow read: if resource == null || (canAccess(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && userDoc().userId == resource.data.userId)));
       allow create: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
       allow update: if canWrite(resource.data.madrassaId) && (isManagement() || isPrincipal() || (isTeacher() && userDoc().userId == resource.data.userId));
       allow delete: if canWrite(resource.data.madrassaId) && (isManagement() || isPrincipal());
     }
 
     match /teacherAssignments/{id} {
-      allow read: if canAccess(resource.data.madrassaId);
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
       allow write: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
     }
 
     match /studentParents/{id} {
-      allow read: if canAccess(resource.data.madrassaId);
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
       allow write: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
     }
 
@@ -486,6 +486,16 @@ service cloud.firestore {
         isPrincipal() ||
         (isTeacher() && resource.data.type == "STUDENT" && resource.data.classId in userDoc().assignedClassIds)
       );
+    }
+
+    match /notices/{id} {
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
+      allow create, update, delete: if canWrite(request.resource.data.madrassaId) && (isManagement() || isPrincipal());
+    }
+
+    match /notifications/{id} {
+      allow read: if resource == null || canAccess(resource.data.madrassaId);
+      allow create, update, delete: if false;
     }
   }
 }

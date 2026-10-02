@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useUIStore } from "@/stores/uiStore";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { navigationConfig } from "@/config/navigation";
 import { cn } from "@/lib/utils";

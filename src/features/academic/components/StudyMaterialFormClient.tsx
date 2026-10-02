@@ -32,7 +32,11 @@ export function StudyMaterialFormClient({ initialData, materialId }: { initialDa
       }
 
       Promise.all(fetchPromises).then((results) => {
-        setClasses(results[0]?.classes || []);
+        let fetchedClasses = results[0]?.classes || [];
+        if (userData?.role === "TEACHER") {
+          fetchedClasses = fetchedClasses.filter((c: any) => userData.assignedClassIds?.includes(c.id));
+        }
+        setClasses(fetchedClasses);
         setSubjects(results[1]?.subjects || []);
         if (results[2]) {
           setInitialDataState(results[2]);

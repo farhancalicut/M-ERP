@@ -46,7 +46,10 @@ export function ProfileForm({ onSuccess }: { onSuccess?: () => void }) {
     
     setLoading(true);
     try {
-      await profileService.updateProfile(userData.id, data);
+      const updateData: any = { displayName: data.displayName };
+      if (data.email) updateData.email = data.email;
+
+      await profileService.updateProfile(userData.id, updateData);
       
       if (isSetupIncomplete && madrassa) {
         await madrassaService.completeSetup(madrassa.code, userData.id);
@@ -55,7 +58,7 @@ export function ProfileForm({ onSuccess }: { onSuccess?: () => void }) {
       
       toast.success(isSetupIncomplete ? "Setup completed successfully!" : "Profile updated successfully");
       if (setUserData) {
-        setUserData({ ...userData, ...data });
+        setUserData({ ...userData, ...updateData });
       }
 
       if (isSetupIncomplete) {

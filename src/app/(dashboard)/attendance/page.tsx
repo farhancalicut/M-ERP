@@ -188,13 +188,14 @@ export default function AttendanceDashboardPage() {
 
   const getMinMaxDates = () => {
     const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
     if (user?.role === "TEACHER") {
       return {
         min: format(subDays(today, 3), 'yyyy-MM-dd'),
-        max: format(today, 'yyyy-MM-dd')
+        max: todayStr
       };
     }
-    return { min: undefined, max: undefined };
+    return { min: undefined, max: todayStr };
   };
 
   const { min, max } = getMinMaxDates();

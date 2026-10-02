@@ -55,7 +55,7 @@ export function PendingLeavesWidget() {
         <CardTitle>Action Required</CardTitle>
         <CardDescription>Recent pending leave requests</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto space-y-4">
+      <CardContent className="max-h-[350px] overflow-y-auto space-y-4 pr-2">
         {leaves.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground bg-slate-50 dark:bg-slate-900 rounded-lg border border-dashed">
             No pending leave requests.

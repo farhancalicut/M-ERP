@@ -243,8 +243,12 @@ export default function ParentDashboard() {
         noticeService.getNotices(madrassaId, { status: "PUBLISHED", targetRoles: ["PARENT"] }, 3),
         // Class name
         classService.getClass(student.classId),
-        // Today's routine log
-        routineService.getDailyLogForStudent(studentId, today),
+        // Today's routine log (checks if ANY routine log was submitted for today)
+        getDocs(query(
+          collection(db, "dailyRoutineLogs"),
+          where("studentId", "==", studentId),
+          where("date", "==", today)
+        )),
       ]);
 
       // Today's status
@@ -306,7 +310,7 @@ export default function ParentDashboard() {
         latestResult,
         recentNotices: noticesRes.notices.slice(0, 3),
         className: classDoc?.name || "",
-        todayRoutineSubmitted: todayRoutineLog?.submitted || false,
+        todayRoutineSubmitted: todayRoutineLog && !todayRoutineLog.empty ? todayRoutineLog.docs.some(d => d.data().submitted) : false,
       });
     } catch (e) {
       console.error("Dashboard data error:", e);
